@@ -6,8 +6,7 @@ import akka.actor.typed.{ActorRef, Behavior}
 
 object DataNode {
 
-  val rng = util.Random
-  val receiverNodeKey = ServiceKey[DataNode.AcceptedMessage]("Receiver" + rng.nextInt())
+  val receiverNodeKey = ServiceKey[DataNode.AcceptedMessage]("Receiver")
 
   sealed trait AcceptedMessage extends CBorSerializable;
   final case class LookupMessage(from: ActorRef[GatewayNode.LookupResult], key: String) extends AcceptedMessage
@@ -24,7 +23,7 @@ object DataNode {
         message match {
           case LookupMessage(from, key) => {
             context.log.info(s"received LookupMessage for key: $key from: $from")
-            from ! GatewayNode.LookupResult(ctx.self, "dummyvalue")
+            from ! GatewayNode.LookupResult("dummyvalue")
           }
           case _ => Behaviors.same
         }

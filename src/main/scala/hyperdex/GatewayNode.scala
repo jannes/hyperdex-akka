@@ -11,10 +11,12 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import akka.pattern.ask
 import hyperdex.DataNode.AcceptedMessage
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 object GatewayNode {
@@ -45,7 +47,7 @@ object GatewayNode {
 
   private final case class Started(binding: ServerBinding) extends StartupMessage
 
-  final case class LookupResult(from: ActorRef[DataNode.AcceptedMessage], value: String) extends RuntimeMessage
+  final case class LookupResult(value: String) extends RuntimeMessage
 
   def getReceiverAdapter(ctx: ActorContext[GatewayMessage]): ActorRef[Receptionist.Listing] = {
     ctx.messageAdapter[Receptionist.Listing] {
@@ -61,7 +63,7 @@ object GatewayNode {
       implicit val untypedSystem: akka.actor.ActorSystem = typedSystem.toClassic
       implicit val materializer: ActorMaterializer =
         ActorMaterializer()(ctx.system.toClassic)
-      implicit val ec: ExecutionContextExecutor = typedSystem.executionContext
+      //implicit val ec: ExecutionContextExecutor = typedSystem.executionContext
 
       /**
         * routes
@@ -81,12 +83,15 @@ object GatewayNode {
             if (receiversMut.isEmpty) {
               complete("no receivers")
             } else {
-              val lookupRes = receiversMut.head
-                .ask[LookupResult](ref => DataNode.LookupMessage(ref, dummyKey))
+//              val lookupRes = receiversMut.head
+//                .ask[LookupResult](ref => DataNode.LookupMessage(ref, dummyKey))
+
+              val lookupRes: Future[LookupResult] = receiversMut.head ? (ref => DataNode.LookupMessage(ctx.self, "key"))
+              //Writing a blocking Await.lookupRes here still doesn't catch the reply. It arrives in running() below
 
               onSuccess(lookupRes) {
-                case LookupResult(f, v) =>
-                  complete(s"from $f received value: $v")
+                case LookupResult(v) =>
+                  complete(s"received value: $v")
               }
             }
           }
@@ -122,6 +127,9 @@ object GatewayNode {
           ctx.log.info(s"updating receivers, new size: ${newReceivers.size}")
           receiversMut = newReceivers
           running(ctx, newReceivers, binding)
+        case lookup: LookupResult => //Reply message from DataNode arrives here, and
+          ctx.log.info(s"Got LookupResult with value ${lookup.value}")
+          Behaviors.same
         case _: StartupMessage =>
           // ignore
           Behaviors.same
