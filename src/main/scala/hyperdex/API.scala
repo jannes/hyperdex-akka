@@ -1,16 +1,7 @@
 package hyperdex
 
-import akka.actor.typed.ActorSystem
-import akka.actor.typed.scaladsl.Behaviors
-import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
-import com.typesafe.config.ConfigFactory
-import sttp.tapir.{EndpointInput, _}
 import sttp.tapir.json.play._
-import sttp.tapir.server.akkahttp._
-
-import scala.concurrent.Future
-import scala.io.StdIn
+import sttp.tapir.{EndpointInput, _}
 
 object API {
 
@@ -25,10 +16,10 @@ object API {
       ("get" / path[String]("table") / path[String]("key"))
         .mapTo(Input)
 
-    val endp: Endpoint[Input, Error, AttributeMapping, Nothing] = endpoint.get
+    val endp: Endpoint[Input, Error, Option[AttributeMapping], Nothing] = endpoint.get
       .in(endpointInput)
       .errorOut(stringBody)
-      .out(jsonBody[AttributeMapping])
+      .out(jsonBody[Option[AttributeMapping]])
 
   }
 

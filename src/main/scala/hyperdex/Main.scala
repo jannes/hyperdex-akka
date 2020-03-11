@@ -31,14 +31,14 @@ object Main {
       """).withFallback(ConfigFactory.load())
 
     role match {
-      case GatewayNodeRole => {
+      case DataNodeRole => {
         val system =
           ActorSystem[Nothing](DataNodeRootBehavior(), "ClusterSystem", config)
       }
-      case DataNodeRole => {
+      case GatewayNodeRole => {
         val system =
           ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
-        GatewayNode.runHttpServer("localhost", 8080, system)
+        GatewayHttpServer.run("localhost", 8080, system)
       }
     }
   }

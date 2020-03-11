@@ -1,15 +1,14 @@
 package hyperdex
 
+import akka.actor.typed.Behavior
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
 
 object DataNode {
 
   val receiverNodeKey = ServiceKey[DataNode.AcceptedMessage]("Receiver")
 
-  sealed trait AcceptedMessage extends CBorSerializable;
-  final case class LookupMessage(from: ActorRef[GatewayNode.LookupResult], key: String) extends AcceptedMessage
+  type AcceptedMessage = GatewayNode.Query
 
   def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     // make receiver node discoverable for sender
@@ -21,11 +20,13 @@ object DataNode {
     Behaviors.receive[AcceptedMessage] {
       case (context, message) =>
         message match {
-          case LookupMessage(from, key) => {
+          case GatewayNode.Lookup(from, table, key) => {
             context.log.info(s"received LookupMessage for key: $key from: $from")
-            from ! GatewayNode.LookupResult("dummyvalue")
+            val dummyResult = Some(Map("key" -> key, "attr1" -> 0))
+            from ! GatewayNode.LookupResult(dummyResult)
           }
-          case _ => Behaviors.same
+          case GatewayNode.Search(from, table, mapping) => {}
+          case GatewayNode.Put(from, table, mapping)    => {}
         }
 
         Behaviors.same
