@@ -1,14 +1,13 @@
 package hyperdex
 
+import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Behavior}
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import com.typesafe.config.ConfigFactory
-import sttp.tapir.EndpointInput
-import sttp.tapir.server.akkahttp._
+import sttp.tapir.{EndpointInput, _}
 import sttp.tapir.json.play._
-import sttp.tapir._
+import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.Future
 import scala.io.StdIn
@@ -74,7 +73,8 @@ object API extends App {
     Future.successful(Right(s))
   }
 
-  def searchRouteLogic(inp: Search.Input): Future[Either[Error, Seq[AttributeMapping]]] = {
+  def searchRouteLogic(
+      inp: Search.Input): Future[Either[Error, Seq[AttributeMapping]]] = {
     val res1 = Map.from(List(("exampleAttr", "exampleVal")))
     val res2 = Map.from(List(("exampleAttr", "exampleVal")))
     val example = List(res1, res2)
