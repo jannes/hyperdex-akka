@@ -7,16 +7,15 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.Route
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import akka.pattern.ask
+import hyperdex.API.{AttributeMapping, Error, Get, Put, Search}
 import hyperdex.DataNode.AcceptedMessage
+import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 object GatewayNode {
@@ -73,37 +72,54 @@ object GatewayNode {
       /**
         * routes
         */
+      def getRouteLogic(
+          inp: Get.Input): Future[Either[Error, AttributeMapping]] = {
+
+        val key = inp.key.toInt
+
+        if (receiversMut.isEmpty) {
+          Future.successful(Left("no receivers"))
+        } else {
+          val lookupRes: Future[LookupResult] = receiversMut.head ? (
+              ref => DataNode.LookupMessage(ref, "key")
+          )
+          lookupRes
+            .map(lr => Map("example" -> 0))
+            .transformWith {
+              case Failure(exception) =>
+                Future.successful(Left(exception.getMessage))
+              case Success(value) =>
+                Future.successful(Right(value))
+            }
+        }
+      }
+
+      def putRouteLogic(inp: Put.Input): Future[Either[Error, String]] = {
+        val s = inp.value.foldLeft("")({ case (s, (k, v)) => s"$s$k: $v\n" })
+        Future.successful(Right(s))
+      }
+
+      def searchRouteLogic(
+          inp: Search.Input): Future[Either[Error, Seq[AttributeMapping]]] = {
+        val res1 = Map.from(List(("exampleAttr", 0)))
+        val res2 = Map.from(List(("exampleAttr", 0)))
+        val example = List(res1, res2)
+        Future.successful(Right(example))
+      }
+
       // asking someone requires a timeout and a scheduler, if the timeout hits without response
       // the ask is failed with a TimeoutException
       implicit val timeout: Timeout = 3.seconds
       // implicit scheduler only needed in 2.5
       // in 2.6 having an implicit typed ActorSystem in scope is enough
 
-      // need to wrap with context to the state gets reevaluated for every request
-      lazy val routes: Route =
-        get {
-          path("lookup") {
-            ctx.log.info("received lookup request")
-            val dummyKey = "dummy"
-            if (receiversMut.isEmpty) {
-              complete("no receivers")
-            } else {
-//              val lookupRes = receiversMut.head
-//                .ask[LookupResult](ref => DataNode.LookupMessage(ref, dummyKey))
-
-              val lookupRes: Future[LookupResult] = receiversMut.head ? (
-                  ref => DataNode.LookupMessage(ref, "key")
-              )
-              ctx.self.narrow[LookupResult]
-              //Writing a blocking Await.lookupRes here still doesn't catch the reply. It arrives in running() below
-
-              onSuccess(lookupRes) {
-                case LookupResult(v) =>
-                  complete(s"received value: $v")
-              }
-            }
-          }
-        }
+      val getRoute = Get.endp.toRoute(getRouteLogic)
+      val putRoute = Put.endp.toRoute(putRouteLogic)
+      val searchRoute = Search.endp.toRoute(searchRouteLogic)
+      val routes = {
+        import akka.http.scaladsl.server.Directives._
+        getRoute ~ putRoute ~ searchRoute
+      }
 
       val serverBinding: Future[Http.ServerBinding] =
         Http.apply().bindAndHandle(routes, host, port)
