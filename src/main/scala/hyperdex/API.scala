@@ -12,11 +12,10 @@ import sttp.tapir.server.akkahttp._
 import scala.concurrent.Future
 import scala.io.StdIn
 
-object API extends App {
+object API {
 
-  type AttributeType = String
+  type AttributeType = Int
   type AttributeMapping = Map[String, AttributeType]
-
   type Error = String
 
   object Get {
@@ -62,51 +61,5 @@ object API extends App {
         .errorOut(stringBody)
         .out(jsonBody[Seq[AttributeMapping]])
   }
-
-  def getRouteLogic(inp: Get.Input): Future[Either[Error, AttributeMapping]] = {
-    val example = Map.from(List(("exampleAttr", "exampleVal")))
-    Future.successful(Right(example))
-  }
-
-  def putRouteLogic(inp: Put.Input): Future[Either[Error, String]] = {
-    val s = inp.value.foldLeft("")({ case (s, (k, v)) => s"$s$k: $v\n" })
-    Future.successful(Right(s))
-  }
-
-  def searchRouteLogic(
-      inp: Search.Input): Future[Either[Error, Seq[AttributeMapping]]] = {
-    val res1 = Map.from(List(("exampleAttr", "exampleVal")))
-    val res2 = Map.from(List(("exampleAttr", "exampleVal")))
-    val example = List(res1, res2)
-    Future.successful(Right(example))
-  }
-
-  val getRoute = Get.endp.toRoute(getRouteLogic)
-  val putRoute = Put.endp.toRoute(putRouteLogic)
-  val searchRoute = Search.endp.toRoute(searchRouteLogic)
-  val routes = {
-    import akka.http.scaladsl.server.Directives._
-    getRoute ~ putRoute ~ searchRoute
-  }
-
-  /**
-    * akka http fluff
-    */
-  import akka.actor.typed.scaladsl.adapter._
-
-  implicit val system =
-    ActorSystem[Nothing](Behaviors.ignore, "my-system", ConfigFactory.empty())
-  implicit val untypedSystem = system.toClassic
-  implicit val materializer = ActorMaterializer()
-  // needed for the future flatMap/onComplete in the end
-  implicit val executionContext = untypedSystem.dispatcher
-
-  val bindingFuture = Http().bindAndHandle(routes, "localhost", 8080)
-
-  println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
-  StdIn.readLine() // let it run until user presses return
-  bindingFuture
-    .flatMap(_.unbind()) // trigger unbinding from the port
-    .onComplete(_ => system.terminate()) // and shutdown when done
 
 }
