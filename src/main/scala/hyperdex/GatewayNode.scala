@@ -9,7 +9,7 @@ import hyperdex.DataNode.AcceptedMessage
 object GatewayNode {
 
   /** messages **/
-  sealed trait GatewayMessage
+  sealed trait GatewayMessage extends CBorSerializable
 
   /** user queries **/
   sealed trait Query extends GatewayMessage
