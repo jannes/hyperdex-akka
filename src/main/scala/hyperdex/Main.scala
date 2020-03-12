@@ -38,22 +38,23 @@ object Main {
       case DataNodeRole => {
         val system =
           ActorSystem[Nothing](DataNodeRootBehavior(), "ClusterSystem", config)
-          // Akka Management hosts the HTTP routes used by bootstrap
-          AkkaManagement(system).start()
 
-          // Starting the bootstrap process needs to be done explicitly
-          ClusterBootstrap(system).start()
+        // Akka Management hosts the HTTP routes used by bootstrap
+        AkkaManagement(system).start()
+
+        // Starting the bootstrap process needs to be done explicitly
+        ClusterBootstrap(system).start()
       }
       case GatewayNodeRole => {
         val system =
           ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
         GatewayHttpServer.run("localhost", 8080, system)
 
-          // Akka Management hosts the HTTP routes used by bootstrap
-          AkkaManagement(system).start()
+        // Akka Management hosts the HTTP routes used by bootstrap
+        AkkaManagement(system).start()
 
-          // Starting the bootstrap process needs to be done explicitly
-          ClusterBootstrap(system).start()
+        // Starting the bootstrap process needs to be done explicitly
+        ClusterBootstrap(system).start()
       }
     }
   }

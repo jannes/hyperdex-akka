@@ -14,6 +14,8 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
+      "com.typesafe.akka" %% "akka-http-spray-json" % "10.1.11",
+      "com.typesafe.akka" %% "akka-parsing" % "10.1.11",
       "com.softwaremill.sttp.tapir" %% "tapir-core" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-json-play" % tapirVersion,
