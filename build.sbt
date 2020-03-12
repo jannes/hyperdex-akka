@@ -13,9 +13,11 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+      "com.typesafe.akka" %% "akka-discovery" % akkaVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-core" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-json-play" % tapirVersion,
-      "ch.qos.logback" % "logback-classic" % "1.2.3"
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "com.lightbend.akka.management" %% "akka-management-cluster-bootstrap" % "1.0.5"
     )
   )

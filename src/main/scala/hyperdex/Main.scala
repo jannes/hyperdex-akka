@@ -2,6 +2,8 @@ package hyperdex
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior}
+import akka.management.cluster.bootstrap.ClusterBootstrap
+import akka.management.scaladsl.AkkaManagement
 import com.typesafe.config.ConfigFactory
 
 object Main {
@@ -30,15 +32,28 @@ object Main {
       akka.cluster.roles = [$role]
       """).withFallback(ConfigFactory.load())
 
+
+
     role match {
       case DataNodeRole => {
         val system =
           ActorSystem[Nothing](DataNodeRootBehavior(), "ClusterSystem", config)
+          // Akka Management hosts the HTTP routes used by bootstrap
+          AkkaManagement(system).start()
+
+          // Starting the bootstrap process needs to be done explicitly
+          ClusterBootstrap(system).start()
       }
       case GatewayNodeRole => {
         val system =
           ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
         GatewayHttpServer.run("localhost", 8080, system)
+
+          // Akka Management hosts the HTTP routes used by bootstrap
+          AkkaManagement(system).start()
+
+          // Starting the bootstrap process needs to be done explicitly
+          ClusterBootstrap(system).start()
       }
     }
   }
