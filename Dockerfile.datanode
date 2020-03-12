@@ -3,4 +3,4 @@ COPY . /hyperdex-akka
 WORKDIR /hyperdex-akka
 EXPOSE 25252
 EXPOSE 8080
-ENTRYPOINT ["sbt", "runMain hyperdex.Main gateway 25252"]
+ENTRYPOINT ["sbt", "runMain hyperdex.Main data 25252"]
