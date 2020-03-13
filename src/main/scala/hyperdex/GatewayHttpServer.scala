@@ -48,11 +48,24 @@ object GatewayHttpServer {
         }
     }
 
-    // TODO
     def putRouteLogic(inp: Put.Input): Future[Either[Error, String]] = {
 
-      val s = inp.value.foldLeft("")({ case (s, (k, v)) => s"$s$k: $v\n" })
-      Future.successful(Right(s))
+      // TODO: handle invalid non integer key
+      val key = inp.key.toInt
+      val putResult: Future[GatewayNode.PutResult] = typedSystem ? { ref =>
+        GatewayNode.Put(ref, inp.table, key, inp.value)
+      }
+
+      putResult
+        .transformWith {
+          case Failure(exception) =>
+            Future.successful(Left(exception.getMessage))
+          case Success(value) =>
+            if (value.succeeded)
+              Future.successful(Right("success"))
+            else
+              Future.successful(Right("failure"))
+        }
     }
 
     // TODO

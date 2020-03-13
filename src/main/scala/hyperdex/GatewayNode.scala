@@ -15,7 +15,7 @@ object GatewayNode {
   sealed trait Query extends GatewayMessage
   final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends Query
   final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends Query
-  final case class Put(from: ActorRef[PutResult], table: String, mapping: Map[String, Int]) extends Query
+  final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends Query
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
@@ -59,7 +59,10 @@ object GatewayNode {
       .receiveMessage {
         case AllReceivers(newReceivers) =>
           ctx.log.info(s"updating receivers, new size: ${newReceivers.size}")
-          running(ctx, newReceivers)
+          if (newReceivers.nonEmpty)
+            running(ctx, newReceivers)
+          else
+            Behaviors.same
         case _ =>
           Behaviors.same
       }
@@ -82,7 +85,9 @@ object GatewayNode {
         case query: Query =>
           // get the right hyperspace for table
           // handle query through hyperspace
-          handleQuery(query)
+          //          handleQuery(query)
+
+          receivers.head ! query
           Behaviors.same
         case _: DataNodeResponse =>
           Behaviors.same
@@ -100,8 +105,8 @@ object GatewayNode {
         // call onComplete and send value back to requester
         from ! LookupResult(Some(Map("key" -> 1, "attr1" -> 2)))
       }
-      case Search(from, table, mapping) => {}
-      case Put(from, table, mapping)    => {}
+      case Search(from, table, mapping)   => {}
+      case Put(from, table, key, mapping) => {}
     }
   }
 }
