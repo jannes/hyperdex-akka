@@ -1,0 +1,28 @@
+version: '3'
+services:
+  gateway:
+    tty: true
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    image: "gateway:latest"
+    networks:
+      akka-network:
+        ipv4_address: 172.18.0.22
+    ports:
+      - "8080:8080"
+  datanode:
+    tty: true
+    build:
+      context: .
+      dockerfile: Dockerfile.datanode
+    image: "datanode:latest"
+    networks:
+      - akka-network
+#        ipv4_address: 172.18.0.23
+networks:
+  akka-network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/16
