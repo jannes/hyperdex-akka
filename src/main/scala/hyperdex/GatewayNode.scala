@@ -3,7 +3,7 @@ package hyperdex
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import hyperdex.API.AttributeMapping
+import hyperdex.API.{AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
 
 object GatewayNode {
@@ -16,12 +16,14 @@ object GatewayNode {
   final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends Query
   final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends Query
   final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends Query
+  final case class Create(from: ActorRef[CreateResult], table: String, attributes: Seq[String]) extends Query
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
   final case class LookupResult(value: Option[AttributeMapping]) extends DataNodeResponse
-  final case class SearchResult(objects: Set[AttributeMapping]) extends DataNodeResponse
+  final case class SearchResult(objects: Map[Key, AttributeMapping]) extends DataNodeResponse
   final case class PutResult(succeeded: Boolean) extends DataNodeResponse
+  final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
 
   /** configuration messages **/
   sealed trait RuntimeMessage extends GatewayMessage

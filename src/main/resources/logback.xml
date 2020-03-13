@@ -14,6 +14,11 @@
         <appender-ref ref="STDOUT" />
     </appender>
 
+    <logger name="akka.cluster" level="WARN"/>
+    <logger name="akka.event" level="WARN"/>
+    <logger name="akka.remote" level="WARN"/>
+    <logger name="hyperdex" level="DEBUG"/>
+
     <root level="INFO">
         <appender-ref ref="ASYNC"/>
     </root>
