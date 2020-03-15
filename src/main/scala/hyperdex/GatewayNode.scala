@@ -8,6 +8,8 @@ import hyperdex.DataNode.AcceptedMessage
 
 object GatewayNode {
 
+  val NUM_DATANODES = 4
+
   /** messages **/
   sealed trait GatewayMessage extends CBorSerializable
 
@@ -42,8 +44,7 @@ object GatewayNode {
         AllReceivers(receivers)
     }
   }
-
-  // TODO: complete starting stage once required number of data nodes is online
+  
   /**
     * stage of resolving all data nodes
     * @param ctx
@@ -58,8 +59,14 @@ object GatewayNode {
     Behaviors
       .receiveMessage {
         case AllReceivers(newReceivers) =>
-          ctx.log.info(s"updating receivers, new size: ${newReceivers.size}")
-          running(ctx, newReceivers)
+          if (newReceivers.size < NUM_DATANODES) {
+            ctx.log.info(s"Not enough receivers, we have ${newReceivers.size} out of ${NUM_DATANODES}.")
+            Behaviors.same
+          }
+          else {
+            ctx.log.info(s"We have ${newReceivers.size} receivers, so lets start running.")
+            running(ctx, newReceivers)
+          }
         case _ =>
           Behaviors.same
       }

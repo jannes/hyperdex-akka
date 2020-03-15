@@ -13,7 +13,6 @@ object DataNode {
   def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     // make receiver node discoverable for sender
     ctx.log.info("registering with receptionist")
-    println("registering")
     ctx.system.receptionist ! Receptionist.register(receiverNodeKey, ctx.self)
 
     // define ping response behavior

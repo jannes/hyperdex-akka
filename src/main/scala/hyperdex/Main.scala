@@ -10,13 +10,17 @@ object Main {
   case object GatewayNodeRole extends Role
   case object DataNodeRole extends Role
 
+  val RNG = new scala.util.Random // For randomly generating port number offsets
+
   def main(args: Array[String]): Unit = {
     require(args.length == 2, "Usage: role port")
+    val port = args(1).toInt + RNG.nextInt(12345) // Random port
+
     args(0) match {
       case "data" =>
-        startup(DataNodeRole, args(1).toInt)
+        startup(DataNodeRole, port)
       case "gateway" =>
-        startup(GatewayNodeRole, args(1).toInt)
+        startup(GatewayNodeRole, port)
       case _ =>
         println("supplied wrong role")
         System.exit(1)
@@ -44,9 +48,9 @@ object Main {
   }
 
   object DataNodeRootBehavior {
-    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { context =>
-      println("I am receiver")
-      context.spawn(DataNode(), "receiverNode")
+    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { ctx =>
+      ctx.log.info("I am receiver")
+      ctx.spawn(DataNode(), "receiverNode")
       Behaviors.empty
     }
   }
