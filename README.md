@@ -21,6 +21,7 @@ do GET http://127.0.0.1:8080/ping to let frontend send ping to receiver
 
 ## Docker and `docker-compose`
 Just run `docker-compose up` and wait for everything to start. You can now GET `localhost:8080/get/table/1`
+NOTE: if you want to rebuild the images you have to run `docker-compose up --build` (so with build flag).
 
 Run `docker-compose up --scale datanode=2` for running with 2 (or more) data nodes.
 
