@@ -18,11 +18,10 @@ object DataNode {
   val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal)
   val tables: Map[String, Table] = Map("test" -> exampleTable)
 
-  def apply(hyperSpaceNode: HyperSpaceNode): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
-    // make receiver node discoverable for sender
+  def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     ctx.log.info("registering with receptionist")
     ctx.system.receptionist ! Receptionist.register(receiverNodeKey, ctx.self)
-    running(hyperSpaceNode)
+    running(tables)
   }
 
   /**
@@ -33,13 +32,15 @@ object DataNode {
     * @param tables
     * @return
     */
-  def running(hyperSpaceNode: HyperSpaceNode): Behavior[AcceptedMessage] = {
+  def running(tables: Map[String, Table]): Behavior[AcceptedMessage] = {
     Behaviors.receive[AcceptedMessage] {
       case (context, message) =>
         message match {
           case GatewayNode.Lookup(from, table, key) => {
             context.log.debug(s"received LookupMessage for key: $key from: $from")
-            val optResult = hyperSpaceNode.objects.get(key)
+            val optResult = tables
+              .get(table)
+              .flatMap(_._2.get(key))
             context.log.debug(s"found object: $optResult")
             from ! GatewayNode.LookupResult(optResult)
             Behaviors.same
@@ -58,7 +59,7 @@ object DataNode {
                   from ! GatewayNode.PutResult(true)
                   val updatedData = data.+((key, mapping))
                   val updatedTable = (attributes, updatedData)
-                  running(hyperSpaceNode)
+                  running(tables.+((tableName, updatedTable)))
                 }
               }
               case None => {
@@ -98,7 +99,7 @@ object DataNode {
             val newTable: Table = (attributes.toSet, Map.empty)
             val newTables = tables.+((tableName, newTable))
             from ! GatewayNode.CreateResult(true)
-            running(hyperSpaceNode)
+            running(newTables)
           }
         }
     }

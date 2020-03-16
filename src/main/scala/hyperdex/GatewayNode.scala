@@ -8,7 +8,7 @@ import hyperdex.DataNode.AcceptedMessage
 
 object GatewayNode {
 
-  val NUM_DATANODES = 4
+  val NUM_DATANODES = 1
 
   /** messages **/
   sealed trait GatewayMessage extends CBorSerializable
@@ -32,13 +32,10 @@ object GatewayNode {
   // to discover receivers
   private final case class AllReceivers(receivers: Set[ActorRef[AcceptedMessage]]) extends RuntimeMessage
 
-  var hyperSpaces: Map[String, HyperSpace] = Map();
-
-  def actorBehavior(hyperSpacesMapping: Map[String, HyperSpace]): Behavior[GatewayMessage] = {
+  def actorBehavior(): Behavior[GatewayMessage] = {
     Behaviors.setup { ctx =>
       ctx.log.info("subscribe to receptionist for receiver nodes")
       ctx.system.receptionist ! Receptionist.subscribe(DataNode.receiverNodeKey, getReceiverAdapter(ctx))
-      hyperSpaces = hyperSpacesMapping
       starting(ctx, Set.empty)
     }
   }
@@ -71,7 +68,6 @@ object GatewayNode {
             ctx.log.info(s"We have ${newReceivers.size} receivers, so lets start running.")
             running(ctx, newReceivers)
           }
-          running(ctx, newReceivers)
         case _ =>
           Behaviors.same
       }
@@ -115,12 +111,12 @@ object GatewayNode {
         from ! LookupResult(Some(Map("key" -> 1, "attr1" -> 2)))
       }
       case Search(from, table, mapping) => {
-        var hyperSpace = hyperSpaces(table);
-        val coordinates: Map[Int, List[(String, Int)]] = hyperSpace.search(mapping)
+//        var hyperSpace = hyperSpaces(table);
+//        val coordinates: Map[Int, List[(String, Int)]] = hyperSpace.search(mapping)
 
-        for (coordinate <- coordinates) {
-          //from ! SearchResult(coordinates)
-        }
+//        for (coordinate <- coordinates) {
+//          //from ! SearchResult(coordinates)
+//        }
 
       }
       case Put(from, table, key, mapping) => {}

@@ -28,7 +28,7 @@ in two terminals:
 
 `sbt "runMain hyperdex.Main data 25252"`
 
-do GET localhost:8080/test/0 to get some example data
+do GET localhost:8080/get/test/0 to get some example data
 
 
 ## Docker and `docker-compose`
