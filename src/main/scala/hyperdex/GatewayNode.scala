@@ -95,7 +95,7 @@ object GatewayNode {
         case query: Query =>
           // get the right hyperspace for table
           // handle query through hyperspace
-          handleQuery(query)
+//          handleQuery(query)
           receivers.head ! query
           Behaviors.same
         case _: DataNodeResponse =>
@@ -114,11 +114,11 @@ object GatewayNode {
         // call onComplete and send value back to requeste
         from ! LookupResult(Some(Map("key" -> 1, "attr1" -> 2)))
       }
-      case Search(from, table, mapping)   => {
+      case Search(from, table, mapping) => {
         var hyperSpace = hyperSpaces(table);
-        val coordinates: Map[Int,List[(String,Int)]] = hyperSpace.search(mapping)
+        val coordinates: Map[Int, List[(String, Int)]] = hyperSpace.search(mapping)
 
-        for(coordinate <- coordinates){
+        for (coordinate <- coordinates) {
           //from ! SearchResult(coordinates)
         }
 
