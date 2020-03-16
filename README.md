@@ -1,4 +1,25 @@
-# running Examples
+## Routes
+### Create
+
+POST /create/<table_name>
+
+with attribute names as json list
+
+### Lookup
+
+GET /get/<table_name>/<key>
+
+### Put
+
+Post /put/<table_name>/<key>
+
+with value specified as json dictionary
+
+### Search
+
+GET /search/<table_name>/
+
+with attributes values specified as json dictionary
 
 ## Cluster Sender + Receiver
 in two terminals:
@@ -7,17 +28,6 @@ in two terminals:
 
 `sbt "runMain hyperdex.Main data 25252"`
 
-do GET http://127.0.0.1:8080/lookup to perform a dummy lookup
-
-
-## Old example HttpFrontend + Receiver
-in two terminals:
-
-`sbt "runMain examples.cluster.ClusterTest hireceiver 25251"`
-
-`sbt "runMain examples.cluster.ClusterTest hisayer 25252"`
-
-do GET http://127.0.0.1:8080/ping to let frontend send ping to receiver
 
 ## Docker and `docker-compose`
 Just run `docker-compose up` and wait for everything to start. You can now GET `localhost:8080/get/table/1`

@@ -112,10 +112,6 @@ object GatewayHttpServer {
     val serverBinding: Future[Http.ServerBinding] =
       Http.apply().bindAndHandle(routes, host, port)
 
-    println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
-    StdIn.readLine() // let it run until user presses return
-    serverBinding
-      .flatMap(_.unbind()) // trigger unbinding from the port
-      .onComplete(_ => typedSystem.terminate()) // and shutdown when done
+    println(s"Server online at http://localhost:8080/")
   }
 }
