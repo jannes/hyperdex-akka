@@ -56,18 +56,6 @@ object API {
   }
 
   object Search {
-    //  implicit def forMap[K, V, CF <: CodecFormat, R](implicit tm: Codec[(K, V), CF, R]): CodecForMany[Map[K, V], CF, R] =
-    //    CodecForMany.forSet[(K, V), CF, R].map(_.toMap)(_.toSet)
-    //  implicit val attributeMappingCodec: Codec[AttributeMapping, CodecFormat.Json, _] =
-    //    implicitly[Codec[AttributeMapping, CodecFormat.Json, _]]
-
-//    implicit lazy val searchResultReads: Reads[Map[Key, AttributeMapping]] =
-//      Reads.mapReads(k => JsResult.fromTry(Try(k.toInt), throwable => JsError(throwable.toString)))
-//    implicit lazy val searchResultWrites: Writes[Map[Key, AttributeMapping]] =
-//      implicitly[Writes[Map[Key, AttributeMapping]]]
-//    implicit val searchResultSchema: Schema[Map[Key, AttributeMapping]] =
-//      implicitly[Schema[Map[Key, AttributeMapping]]]
-//    implicit val searchResultCodec: Codec[Map[Key, AttributeMapping], CodecFormat.Json, _] = readsWritesCodec
     case class Input(table: String, query: AttributeMapping)
 
     val endpointInput: EndpointInput[Input] =
@@ -75,12 +63,7 @@ object API {
         .and(jsonBody[AttributeMapping])
         .mapTo(Input)
 
-//    val endp: Endpoint[Input, Error, Map[Key, AttributeMapping], Nothing] =
-//      endpoint.get
-//        .in(endpointInput)
-//        .errorOut(stringBody)
-//        .out(jsonBody[Map[Key, AttributeMapping]](CodecForOptional.fromCodec(searchResultCodec)))
-
+    // return set of tuples instead of map because the keys are integers (json only has string keys)
     val endp: Endpoint[Input, Error, Set[(Key, AttributeMapping)], Nothing] =
       endpoint.get
         .in(endpointInput)

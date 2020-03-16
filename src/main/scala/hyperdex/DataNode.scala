@@ -14,7 +14,7 @@ object DataNode {
   type TableData = Map[Key, AttributeMapping]
   type Table = (AttributeNames, TableData)
 
-  val exampleKeyVal: TableData = Map(0 -> Map("at1" -> 0, "at2" -> 1))
+  val exampleKeyVal = Map(0 -> Map("at1" -> 0, "at2" -> 1))
   val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal)
   val tables: Map[String, Table] = Map("test" -> exampleTable)
 
@@ -82,7 +82,9 @@ object DataNode {
                 } else {
                   val searchResult = search(data, mapping)
                   context.log.debug(s"matching objects keys: ${searchResult}")
-                  from ! GatewayNode.SearchResult(searchResult)
+                  val castedSearchResult = searchResult
+                    .map({ case (key, mapping) => (key.toString, mapping) })
+                  from ! GatewayNode.SearchResult(castedSearchResult)
                 }
                 Behaviors.same
               }
