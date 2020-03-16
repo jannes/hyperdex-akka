@@ -5,6 +5,8 @@ import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
 import hyperdex.API.{Attribute, AttributeMapping, Key}
 
+import scala.collection.immutable.Set
+
 object DataNode {
 
   val receiverNodeKey: ServiceKey[AcceptedMessage] = ServiceKey("Receiver")
@@ -12,11 +14,13 @@ object DataNode {
   type AcceptedMessage = GatewayNode.Query
   type AttributeNames = Set[String]
   type TableData = Map[Key, AttributeMapping]
-  type Table = (AttributeNames, TableData)
+  type TableAttributeHashing = Map[String, Array[Set[Int]]]
+  type Table = (AttributeNames, TableData, TableAttributeHashing)
 
   val exampleKeyVal: TableData = Map(0 -> Map("at1" -> 0, "at2" -> 1))
-  val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal)
+  val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal, Map())
   val tables: Map[String, Table] = Map("test" -> exampleTable)
+  val bucketSize = 25
 
   def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     ctx.log.info("registering with receptionist")
@@ -58,7 +62,7 @@ object DataNode {
                 } else {
                   from ! GatewayNode.PutResult(true)
                   val updatedData = data.+((key, mapping))
-                  val updatedTable = (attributes, updatedData)
+                  val updatedTable = (attributes, updatedData, targetTable._3)
                   running(tables.+((tableName, updatedTable)))
                 }
               }
@@ -96,13 +100,22 @@ object DataNode {
           }
           case GatewayNode.Create(from, tableName, attributes) => {
             context.log.info(s"received create from ${from}")
-            val newTable: Table = (attributes.toSet, Map.empty)
+            var attributeHashing: Map[String, Array[Set[Int]]] = Map()
+            for(attribute <- attributes){
+              attributeHashing += (attribute -> initBuckets(bucketSize))
+            }
+            val newTable: Table = (attributes.toSet, Map.empty, attributeHashing)
             val newTables = tables.+((tableName, newTable))
             from ! GatewayNode.CreateResult(true)
             running(newTables)
           }
         }
     }
+  }
+
+  private def initBuckets(size: Int): Array[Set[Int]] = {
+    var arr = new Array[Set[Int]](size)
+    arr.map(_ => Set[Int]())
   }
 
   private def search(tableData: Map[Key, AttributeMapping], query: AttributeMapping): Map[Key, AttributeMapping] = {

@@ -9,6 +9,8 @@ import hyperdex.DataNode.AcceptedMessage
 object GatewayNode {
 
   val NUM_DATANODES = 1
+  var hyperSpaceMapping: Map[String, HyperSpace] = Map()
+  var dataNodeMapping: Map[Int, ActorRef[DataNode.AcceptedMessage]] = Map()
 
   /** messages **/
   sealed trait GatewayMessage extends CBorSerializable
@@ -47,6 +49,35 @@ object GatewayNode {
     }
   }
 
+  def initTestHyperSpace(ctx: ActorContext[GatewayMessage],
+                         receivers: Set[ActorRef[DataNode.AcceptedMessage]]) = {
+    create(ctx, receivers, "TestTable1", Seq("attribute1","attribute2", "attribute3"))
+
+//    val objects: Array[AttributeMapping] = generateTestObjects(10000).filter(x => x != null);
+//    var IDs: Array[Int] = objects.map( x => x("Id") );
+//    var attr1list: Array[Int] = objects.map( x => x("attribute1") );
+//    var attr2list: Array[Int] = objects.map( x => x("attribute2") );
+//    var attr3list: Array[Int] = objects.map( x => x("attribute3") );
+//    var attr4list: Array[Int] = objects.map( x => x("attribute4") );
+//    var attributeValuesList: Array[Array[Int]]= Array(attr1list,attr2list, attr3list, attr4list);
+//    var hyperspace = new HyperSpace(attributeslist, 100, objects, IDs, attributeValuesList);
+//    return hyperspace
+  }
+
+  private def create(ctx: ActorContext[GatewayMessage],
+                     receivers: Set[ActorRef[DataNode.AcceptedMessage]], name: String, attributes: Seq[String]): CreateResult = {
+    var newHyperSpace = new HyperSpace(attributes,NUM_DATANODES)
+    hyperSpaceMapping += (name -> newHyperSpace)
+    var partOfHyperSpace= 1
+    for(dataNode <- receivers){
+
+      dataNodeMapping += (partOfHyperSpace -> dataNode)
+      partOfHyperSpace += 1
+      dataNode ! Create(ctx.self,name, attributes)
+    }
+    CreateResult(true)
+  }
+
   /**
     * stage of resolving all data nodes
     * @param ctx
@@ -67,6 +98,7 @@ object GatewayNode {
           } else {
             ctx.log.info(s"We have ${newReceivers.size} receivers, so lets start running.")
             running(ctx, newReceivers)
+
           }
         case _ =>
           Behaviors.same
@@ -84,7 +116,7 @@ object GatewayNode {
 //    hyperspaces: Map[String, HyperSpace],
     receivers: Set[ActorRef[DataNode.AcceptedMessage]],
   ): Behavior[GatewayMessage] = {
-
+    initTestHyperSpace(ctx, receivers)
     Behaviors
       .receiveMessage {
 
@@ -103,7 +135,8 @@ object GatewayNode {
   }
 
   // TODO: route queries to hyperspace object
-  private def handleQuery(query: GatewayNode.Query): Unit = {
+  private def handleQuery(query: GatewayNode.Query, ctx: ActorContext[GatewayMessage],
+                          receivers: Set[ActorRef[DataNode.AcceptedMessage]]): Unit = {
     query match {
       case Lookup(from, table, key) => {
         // get Future from Hyperspace
@@ -120,6 +153,11 @@ object GatewayNode {
 
       }
       case Put(from, table, key, mapping) => {}
+      case Create(from, table, attributes) => {
+        from ! create(ctx, receivers, table, attributes)
+
+      }
+
     }
   }
 }

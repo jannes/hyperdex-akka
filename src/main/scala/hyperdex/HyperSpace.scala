@@ -12,34 +12,35 @@ import scala.collection.immutable.Set
   * @param IDs array with all the unique identifiers of all the objects
   * @param attributeValuesList arrays containing the data per column
   */
-class HyperSpace(attributes :List[String], bucketAmount: Int, objects: Array[AttributeMapping], IDs: Array[Int], attributeValuesList: Array[Array[Int]]) {
-  var amountOfNodes = 0;
-  var objectMapping : Map[Int,AttributeMapping] = Map()
-  initObjectMapping(objects, IDs)
+class HyperSpace(attributes :Seq[String], numberOfNodes: Int) {
+  var amountOfNodes = numberOfNodes;
+  var bucketAmount = 100;
 
-  def initHyperSpace(nodes: Int): Array[HyperSpaceNode] = {
-    amountOfNodes = nodes
-    var dimensions: Map[String, Array[Set[Int]]] = Map();
-    var hyperspaceNodes: Array[HyperSpaceNode] = new Array[HyperSpaceNode](amountOfNodes);
 
-    for (attribute <- attributes) {
-      dimensions += (attribute -> initBuckets(bucketAmount));
-    }
 
-    for (x <- 0 until 4) {
-      var attribute = attributes(x)
-      hashAttributes(attributeValuesList(x), IDs, 100, dimensions(attribute))
-    }
-
-    for (i <- hyperspaceNodes.indices){
-      var frac = i*(bucketAmount/hyperspaceNodes.length);
-      var nodes = dimensions.splitAt(frac)
-      var objectMappingPart = objectMapping.splitAt(frac)
-      hyperspaceNodes(i) = new HyperSpaceNode(nodes._1, objectMappingPart._1);
-    }
-
-    return hyperspaceNodes
-  }
+  //  def initHyperSpace(nodes: Int): Array[HyperSpaceNode] = {
+//    amountOfNodes = nodes
+//    var dimensions: Map[String, Array[Set[Int]]] = Map();
+//    var hyperspaceNodes: Array[HyperSpaceNode] = new Array[HyperSpaceNode](amountOfNodes);
+//
+//    for (attribute <- attributes) {
+//      dimensions += (attribute -> initBuckets(bucketAmount));
+//    }
+//
+//    for (x <- 0 until 4) {
+//      var attribute = attributes(x)
+//      hashAttributes(attributeValuesList(x), IDs, 100, dimensions(attribute))
+//    }
+//
+//    for (i <- hyperspaceNodes.indices){
+//      var frac = i*(bucketAmount/hyperspaceNodes.length);
+//      var nodes = dimensions.splitAt(frac)
+//      var objectMappingPart = objectMapping.splitAt(frac)
+//      hyperspaceNodes(i) = new HyperSpaceNode(nodes._1, objectMappingPart._1);
+//    }
+//
+//    return hyperspaceNodes
+//  }
 
   def hashAttributes(values: Array[Int], ids: Array[Int], bucketsize: Int, buckets: Array[Set[Int]])= {
     for(x <- values.indices){
@@ -57,7 +58,7 @@ class HyperSpace(attributes :List[String], bucketAmount: Int, objects: Array[Att
     for(x <- objects.indices){
       var obj = objects(x)
       var id = ids(x)
-      objectMapping += (id -> obj)
+//      objectMapping += (id -> obj)
     }
   }
 
@@ -65,9 +66,9 @@ class HyperSpace(attributes :List[String], bucketAmount: Int, objects: Array[Att
     return value.hashCode() % bucketAmount;
   }
 
-  def get(id: Int): Any = {
-    objectMapping(id)
-  }
+//  def get(id: Int): Any = {
+//    objectMapping(id)
+//  }
 
   def search(query: Map[String, Int]): Map[Int,List[(String,Int)]] = {
 
