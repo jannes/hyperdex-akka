@@ -15,12 +15,13 @@ object DataNode {
   type Table = (AttributeNames, TableData)
 
   val exampleTable: Table = (Set("at1", "at2"), Map.empty)
+  val tables: Map[String,Table] = Map("test"-> exampleTable)
 
-  def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
+  def apply(hyperSpaceNode: HyperSpaceNode): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     // make receiver node discoverable for sender
     ctx.log.info("registering with receptionist")
     ctx.system.receptionist ! Receptionist.register(receiverNodeKey, ctx.self)
-    running(Map("exampleTable" -> exampleTable))
+    running(hyperSpaceNode)
   }
 
   /**
@@ -31,15 +32,13 @@ object DataNode {
     * @param tables
     * @return
     */
-  def running(tables: Map[String, Table]): Behavior[AcceptedMessage] = {
+  def running(hyperSpaceNode: HyperSpaceNode): Behavior[AcceptedMessage] = {
     Behaviors.receive[AcceptedMessage] {
       case (context, message) =>
         message match {
           case GatewayNode.Lookup(from, table, key) => {
             context.log.debug(s"received LookupMessage for key: $key from: $from")
-            val optResult = tables
-              .get(table)
-              .flatMap(_._2.get(key))
+            val optResult = hyperSpaceNode.objects.get(key)
             context.log.debug(s"found object: $optResult")
             from ! GatewayNode.LookupResult(optResult)
             Behaviors.same
@@ -58,7 +57,7 @@ object DataNode {
                   from ! GatewayNode.PutResult(true)
                   val updatedData = data.+((key, mapping))
                   val updatedTable = (attributes, updatedData)
-                  running(tables.+((tableName, updatedTable)))
+                  running(hyperSpaceNode)
                 }
               }
               case None => {
@@ -98,7 +97,7 @@ object DataNode {
             val newTable: Table = (attributes.toSet, Map.empty)
             val newTables = tables.+((tableName, newTable))
             from ! GatewayNode.CreateResult(true)
-            running(newTables)
+            running(hyperSpaceNode)
           }
         }
     }
