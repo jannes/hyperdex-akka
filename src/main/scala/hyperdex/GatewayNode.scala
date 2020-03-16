@@ -3,7 +3,7 @@ package hyperdex
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import hyperdex.API.AttributeMapping
+import hyperdex.API.{AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
 
 object GatewayNode {
@@ -17,13 +17,15 @@ object GatewayNode {
   sealed trait Query extends GatewayMessage
   final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends Query
   final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends Query
-  final case class Put(from: ActorRef[PutResult], table: String, mapping: Map[String, Int]) extends Query
+  final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends Query
+  final case class Create(from: ActorRef[CreateResult], table: String, attributes: Seq[String]) extends Query
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
   final case class LookupResult(value: Option[AttributeMapping]) extends DataNodeResponse
-  final case class SearchResult(objects: Set[AttributeMapping]) extends DataNodeResponse
+  final case class SearchResult(objects: Map[Key, AttributeMapping]) extends DataNodeResponse
   final case class PutResult(succeeded: Boolean) extends DataNodeResponse
+  final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
 
   /** configuration messages **/
   sealed trait RuntimeMessage extends GatewayMessage
@@ -44,7 +46,7 @@ object GatewayNode {
         AllReceivers(receivers)
     }
   }
-  
+
   /**
     * stage of resolving all data nodes
     * @param ctx
@@ -62,11 +64,11 @@ object GatewayNode {
           if (newReceivers.size < NUM_DATANODES) {
             ctx.log.info(s"Not enough receivers, we have ${newReceivers.size} out of ${NUM_DATANODES}.")
             Behaviors.same
-          }
-          else {
+          } else {
             ctx.log.info(s"We have ${newReceivers.size} receivers, so lets start running.")
             running(ctx, newReceivers)
           }
+          running(ctx, newReceivers)
         case _ =>
           Behaviors.same
       }
@@ -89,7 +91,9 @@ object GatewayNode {
         case query: Query =>
           // get the right hyperspace for table
           // handle query through hyperspace
-          handleQuery(query)
+          //          handleQuery(query)
+
+          receivers.head ! query
           Behaviors.same
         case _: DataNodeResponse =>
           Behaviors.same
@@ -107,8 +111,8 @@ object GatewayNode {
         // call onComplete and send value back to requester
         from ! LookupResult(Some(Map("key" -> 1, "attr1" -> 2)))
       }
-      case Search(from, table, mapping) => {}
-      case Put(from, table, mapping)    => {}
+      case Search(from, table, mapping)   => {}
+      case Put(from, table, key, mapping) => {}
     }
   }
 }
