@@ -2,6 +2,7 @@ package hyperdex
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior}
+
 import com.typesafe.config.ConfigFactory
 
 object Main {
@@ -34,15 +35,20 @@ object Main {
       akka.cluster.roles = [$role]
       """).withFallback(ConfigFactory.load())
 
+
+
     role match {
       case DataNodeRole => {
         val system =
           ActorSystem[Nothing](DataNodeRootBehavior(), "ClusterSystem", config)
+
       }
       case GatewayNodeRole => {
         val system =
           ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
-        GatewayHttpServer.run("localhost", 8080, system)
+        GatewayHttpServer.run("0.0.0.0", 8080, system)
+
+
       }
     }
   }
