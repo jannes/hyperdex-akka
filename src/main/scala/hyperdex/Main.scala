@@ -4,6 +4,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior}
 
 import com.typesafe.config.ConfigFactory
+import hyperdex.GatewayNode.hyperSpaces
 
 object Main {
 
@@ -34,29 +35,27 @@ object Main {
       akka.remote.artery.canonical.port=$port
       akka.cluster.roles = [$role]
       """).withFallback(ConfigFactory.load())
-
-
+    var hyperSpace = HyperSpaceCreator.initTestHyperSpace();
+    var hyperSpaceNodes: Array[HyperSpaceNode] = HyperSpaceCreator.initHyperspace(hyperSpace, 1);
+    hyperSpaces = Map("test" -> hyperSpace)
 
     role match {
       case DataNodeRole => {
         val system =
           ActorSystem[Nothing](DataNodeRootBehavior(), "ClusterSystem", config)
-
       }
       case GatewayNodeRole => {
         val system =
           ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
-        GatewayHttpServer.run("0.0.0.0", 8080, system)
-
-
+        GatewayHttpServer.run("localhost", 8080, system)
       }
     }
   }
 
   object DataNodeRootBehavior {
-    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { ctx =>
-      ctx.log.info("I am receiver")
-      ctx.spawn(DataNode(), "receiverNode")
+    def apply(): Behavior[Nothing] = Behaviors.setup[Nothing] { context =>
+      println("I am receiver")
+      context.spawn(DataNode(), "receiverNode")
       Behaviors.empty
     }
   }

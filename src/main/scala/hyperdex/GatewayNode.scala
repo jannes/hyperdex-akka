@@ -32,10 +32,13 @@ object GatewayNode {
   // to discover receivers
   private final case class AllReceivers(receivers: Set[ActorRef[AcceptedMessage]]) extends RuntimeMessage
 
-  def actorBehavior(): Behavior[GatewayMessage] = {
+  var hyperSpaces: Map[String, HyperSpace] = Map();
+
+  def actorBehavior(hyperSpacesMapping: Map[String, HyperSpace]): Behavior[GatewayMessage] = {
     Behaviors.setup { ctx =>
       ctx.log.info("subscribe to receptionist for receiver nodes")
       ctx.system.receptionist ! Receptionist.subscribe(DataNode.receiverNodeKey, getReceiverAdapter(ctx))
+      hyperSpaces = hyperSpacesMapping
       starting(ctx, Set.empty)
     }
   }
@@ -88,11 +91,11 @@ object GatewayNode {
 
     Behaviors
       .receiveMessage {
+
         case query: Query =>
           // get the right hyperspace for table
           // handle query through hyperspace
-          //          handleQuery(query)
-
+          handleQuery(query)
           receivers.head ! query
           Behaviors.same
         case _: DataNodeResponse =>
@@ -108,10 +111,18 @@ object GatewayNode {
     query match {
       case Lookup(from, table, key) => {
         // get Future from Hyperspace
-        // call onComplete and send value back to requester
+        // call onComplete and send value back to requeste
         from ! LookupResult(Some(Map("key" -> 1, "attr1" -> 2)))
       }
-      case Search(from, table, mapping)   => {}
+      case Search(from, table, mapping)   => {
+        var hyperSpace = hyperSpaces(table);
+        val coordinates: Map[Int,List[(String,Int)]] = hyperSpace.search(mapping)
+
+        for(coordinate <- coordinates){
+          //from ! SearchResult(coordinates)
+        }
+
+      }
       case Put(from, table, key, mapping) => {}
     }
   }
