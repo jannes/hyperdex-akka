@@ -16,10 +16,11 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     require(args.length == 2, "Usage: role port")
-    val port = args(1).toInt + RNG.nextInt(12345) // Random port
+    var port: Int = args(1).toInt
 
     args(0) match {
       case "data" =>
+        port = port + RNG.nextInt(12345) // Random port
         startup(DataNodeRole, port)
       case "gateway" =>
         startup(GatewayNodeRole, port)
