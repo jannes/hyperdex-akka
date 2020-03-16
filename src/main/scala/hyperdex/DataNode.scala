@@ -14,8 +14,9 @@ object DataNode {
   type TableData = Map[Key, AttributeMapping]
   type Table = (AttributeNames, TableData)
 
-  val exampleTable: Table = (Set("at1", "at2"), Map.empty)
-  val tables: Map[String,Table] = Map("test"-> exampleTable)
+  val exampleKeyVal: TableData = Map(0 -> Map("at1" -> 0, "at2" -> 1))
+  val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal)
+  val tables: Map[String, Table] = Map("test" -> exampleTable)
 
   def apply(hyperSpaceNode: HyperSpaceNode): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     // make receiver node discoverable for sender

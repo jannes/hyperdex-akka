@@ -1,23 +1,23 @@
 ## Routes
 ### Create
 
-POST /create/<table_name>
+POST /create/"table_name"
 
 with attribute names as json list
 
 ### Lookup
 
-GET /get/<table_name>/<key>
+GET /get/"table_name"/"key"
 
 ### Put
 
-Post /put/<table_name>/<key>
+Post /put/"table_name"/"key"
 
 with value specified as json dictionary
 
 ### Search
 
-GET /search/<table_name>/
+GET /search/"table_name"/"key"
 
 with attributes values specified as json dictionary
 
@@ -27,6 +27,8 @@ in two terminals:
 `sbt "runMain hyperdex.Main gateway 25251"`
 
 `sbt "runMain hyperdex.Main data 25252"`
+
+do GET localhost:8080/test/0 to get some example data
 
 
 ## Docker and `docker-compose`
