@@ -1,112 +1,62 @@
 package hyperdex
 
-import hyperdex.API.AttributeMapping
+import hyperdex.API.{Attribute, AttributeMapping, Key}
 
 import scala.collection.immutable.Set
 
-/**
-  * representing a Hyperspace of a Table
-  * @param attributes names of the attributes (needed for query's)
-  * @param bucketAmount amount of buckets used by hashing mechanism
-  * @param objects of the Table
-  * @param IDs array with all the unique identifiers of all the objects
-  * @param attributeValuesList arrays containing the data per column
-  */
-class HyperSpace(attributes :List[String], bucketAmount: Int, objects: Array[AttributeMapping], IDs: Array[Int], attributeValuesList: Array[Array[Int]]) {
-  var amountOfNodes = 0;
-  var objectMapping : Map[Int,AttributeMapping] = Map()
-  initObjectMapping(objects, IDs)
+class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
 
-  def initHyperSpace(nodes: Int): Array[HyperSpaceNode] = {
-    amountOfNodes = nodes
-    var dimensions: Map[String, Array[Set[Int]]] = Map();
-    var hyperspaceNodes: Array[HyperSpaceNode] = new Array[HyperSpaceNode](amountOfNodes);
+  case class Region(sectionPerAxis: Seq[Int])
 
-    for (attribute <- attributes) {
-      dimensions += (attribute -> initBuckets(bucketAmount));
+  // axis 0: key, axis 1..n: attr1 ... attrn
+
+  private val amountRegions = cutsPerAxis ^ (attributes.size + 1)
+  private val regionToNodeMapping: Map[Region, Int] = ???
+
+  def getResponsibleNodeIds(key: Key): Set[Int] =
+    getPossibleRegions(Some(key), Map.empty).map(regionToNode)
+
+  def getResponsibleNodeIds(key: Key, query: AttributeMapping): Set[Int] =
+    getPossibleRegions(Some(key), query).map(regionToNode)
+
+  def getResponsibleNodeIds(query: AttributeMapping): Set[Int] =
+    getPossibleRegions(None, query).map(regionToNode)
+
+  private def regionToNode(r: Region): Int = regionToNodeMapping(r)
+
+  private def getPossibleRegions(optKey: Option[Key], attributeValues: AttributeMapping): Set[Region] = {
+
+    def optAttributeToSection(optAtt: Option[Attribute]): Set[Int] = optAtt match {
+      case Some(att) => Set(getAttributeSection(att))
+      case None      => (0 until cutsPerAxis).toSet
     }
 
-    for (x <- 0 until 4) {
-      var attribute = attributes(x)
-      hashAttributes(attributeValuesList(x), IDs, 100, dimensions(attribute))
-    }
-
-    for (i <- hyperspaceNodes.indices){
-      var frac = i*(bucketAmount/hyperspaceNodes.length);
-      var nodes = dimensions.splitAt(frac)
-      var objectMappingPart = objectMapping.splitAt(frac)
-      hyperspaceNodes(i) = new HyperSpaceNode(nodes._1, objectMappingPart._1);
-    }
-
-    return hyperspaceNodes
-  }
-
-  def hashAttributes(values: Array[Int], ids: Array[Int], bucketsize: Int, buckets: Array[Set[Int]])= {
-    for(x <- values.indices){
-      var hashValue = values(x).hashCode() % bucketsize;
-      buckets(hashValue) += ids(x)
-    }
-  }
-
-  def initBuckets(size: Int): Array[Set[Int]] = {
-    var arr = new Array[Set[Int]](size)
-    arr.map(_ => Set[Int]())
-  }
-
-  def initObjectMapping(objects: Array[AttributeMapping], ids: Array[Int]  ) ={
-    for(x <- objects.indices){
-      var obj = objects(x)
-      var id = ids(x)
-      objectMapping += (id -> obj)
-    }
-  }
-
-  def obtainindex(value: Int): Int = {
-    return value.hashCode() % bucketAmount;
-  }
-
-  def get(id: Int): Any = {
-    objectMapping(id)
-  }
-
-  def search(query: Map[String, Int]): Map[Int,List[(String,Int)]] = {
-
-    var coordinates: Map[Int,List[(String,Int)]] =  Map[Int,List[(String,Int)]]()
-
-    for(filter <- query) {
-      val key = filter._1
-      val value = filter._2
-      var valueIndex = obtainindex(value);
-      var stepsize = bucketAmount / amountOfNodes;
-      var nodeindex = Math.floor(valueIndex / stepsize).toInt;
-
-      if(coordinates.contains(nodeindex)){
-        var coordinate = coordinates(nodeindex)
-        coordinate :+= (key, valueIndex)
-      }else{
-        coordinates += (nodeindex -> List((key, valueIndex)))
+    def axisSectionsToRegions(axisSections: Seq[Set[Int]]): Set[Region] = {
+      def getAllAxisSectionTails(startAxis: Int): Set[Seq[Int]] = {
+        if (startAxis == axisSections.size) {
+          Set.empty[Seq[Int]]
+        } else {
+          val sections = axisSections(startAxis)
+          for {
+            s <- sections
+            tail <- getAllAxisSectionTails(axisSections, startAxis + 1)
+          } yield Seq(s) ++ tail
+        }
       }
+
+      getAllAxisSectionTails(0)
+        .map(Region)
     }
 
-    return coordinates
+    val keyAxisSections = optAttributeToSection(optKey)
+    val attributesSections = attributes
+      .map(a => optAttributeToSection(attributeValues.get(a)))
+    val axisSections = Seq(keyAxisSections) ++ attributesSections
+    axisSectionsToRegions(axisSections)
   }
+
+  private def getAttributeSection(attributeValue: Attribute): Int = {
+    attributeValue % cutsPerAxis
+  }
+
 }
-
-//  if(ids.isEmpty || (ids.nonEmpty && previousids.nonEmpty && ids.intersect(previousids).isEmpty)){
-//        return null
-//      }else{
-//        if(previousids.isEmpty){
-//          previousids = ids
-//        }else{
-//          previousids = ids.intersect(previousids)
-//        }
-//
-//      }
-//    }
-//
-//    var results = new Array[Any](previousids.size)
-//    for(id <- previousids){
-//      var obj = get(id)
-//      results :+= obj
-//    }
-
