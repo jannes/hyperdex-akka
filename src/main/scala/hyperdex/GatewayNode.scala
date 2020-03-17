@@ -28,7 +28,8 @@ object GatewayNode {
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
   final case class LookupResult(value: Option[AttributeMapping]) extends DataNodeResponse
-  final case class SearchResult(objects: Map[Key, AttributeMapping]) extends DataNodeResponse
+  // in order for cbor/json serialization to work a map can only have strings as keys
+  final case class SearchResult(objects: Map[String, AttributeMapping]) extends DataNodeResponse
   final case class PutResult(succeeded: Boolean) extends DataNodeResponse
   final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
 

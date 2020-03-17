@@ -39,7 +39,7 @@ object Main {
       case GatewayNodeRole => {
         val system =
           ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
-        GatewayHttpServer.run("localhost", 8080, system)
+        GatewayHttpServer.run("0.0.0.0", 8080, system)
       }
     }
   }

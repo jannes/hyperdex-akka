@@ -2,4 +2,4 @@ FROM hseeberger/scala-sbt:8u222_1.3.5_2.13.1
 COPY . /hyperdex-akka
 WORKDIR /hyperdex-akka
 RUN ["sbt", "compile"]
-ENTRYPOINT ["sbt", "runMain hyperdex.Main data 25252"]
+ENTRYPOINT ["sbt", "-Dconfig.resource=dockercompose.conf", "runMain hyperdex.Main data 25252"]

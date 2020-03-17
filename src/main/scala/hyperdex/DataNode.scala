@@ -93,7 +93,9 @@ object DataNode {
                 } else {
                   val searchResult = search(data, mapping)
                   context.log.debug(s"matching objects keys: ${searchResult}")
-                  from ! GatewayNode.SearchResult(searchResult)
+                  val castedSearchResult = searchResult
+                    .map({ case (key, mapping) => (key.toString, mapping) })
+                  from ! GatewayNode.SearchResult(castedSearchResult)
                 }
                 Behaviors.same
               }

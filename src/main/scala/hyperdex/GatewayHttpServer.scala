@@ -13,7 +13,6 @@ import sttp.tapir.server.akkahttp._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.io.StdIn
 import scala.util.{Failure, Success}
 
 object GatewayHttpServer {
@@ -95,8 +94,10 @@ object GatewayHttpServer {
         .transformWith {
           case Failure(exception) =>
             Future.successful(Left(exception.getMessage))
-          case Success(value) =>
-            Future.successful(Right(value.toSet))
+          case Success(value) => {
+            val castedValue = value.map({ case (key, mapping) => (key.toInt, mapping) })
+            Future.successful(Right(castedValue.toSet))
+          }
         }
     }
 
