@@ -4,7 +4,7 @@ import java.util.UUID
 
 import hyperdex.API.AttributeMapping
 
-import scala.collection.immutable.Set
+import scala.collection.mutable.Set
 
 class HyperSpaceNode (dimensionsMap: Map[String, Array[Set[Int]]], objectMapping : Map[Int, AttributeMapping]) {
   var dimensions: Map[String, Array[Set[Int]]] = dimensionsMap;

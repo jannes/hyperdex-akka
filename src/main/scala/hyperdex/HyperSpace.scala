@@ -2,7 +2,7 @@ package hyperdex
 
 import hyperdex.API.{AttributeMapping, Key}
 
-import scala.collection.immutable.Set
+import scala.collection.mutable.Set
 
 /**
   * representing a Hyperspace of a Table
