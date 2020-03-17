@@ -5,10 +5,10 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import hyperdex.API.{AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
-
+import Main.NUM_DATANODES
 object GatewayNode {
 
-  val NUM_DATANODES = 1
+
 
   /** messages **/
   sealed trait GatewayMessage extends CBorSerializable
