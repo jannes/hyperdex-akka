@@ -74,7 +74,6 @@ object DataNode {
             tables.get(table) match {
               case Some(targetTable) => {
                 targetTable._3(attribute)(hashValue) += key
-                from ! GatewayNode.PutResult(true)
                 running(tables)
               }
               case None => {

@@ -75,22 +75,21 @@ object GatewayNode {
 //    return hyperspace
   }
 
-  private def put(ctx: ActorContext[GatewayMessage], receivers: Set[ActorRef[DataNode.AcceptedMessage]], mapping: AttributeMapping, key: Key, table: String): PutResult ={
+  private def put(from: ActorRef[PutResult], receivers: Set[ActorRef[DataNode.AcceptedMessage]], mapping: AttributeMapping, key: Key, table: String) ={
     var hyperSpace = hyperSpaceMapping(table)
     for(attribute <- mapping){
       var hashIndex = hyperSpace.hashValue(attribute._2);
       var dataNodeIndex = hyperSpace.obtainDataNodeIndex(hashIndex)
-      dataNodeMapping(dataNodeIndex) ! PutAttribute(ctx.self,table, key, hashIndex, attribute._1)
+      dataNodeMapping(dataNodeIndex) ! PutAttribute(from,table, key, hashIndex, attribute._1)
     }
 
     var dataNodeIndex = key % NUM_DATANODES
-    dataNodeMapping(dataNodeIndex) ! PutObject(ctx.self, table, key, mapping)
+    dataNodeMapping(dataNodeIndex) ! PutObject(from, table, key, mapping)
 
-    PutResult(true)
   }
 
-  private def create(ctx: ActorContext[GatewayMessage],
-                     receivers: Set[ActorRef[DataNode.AcceptedMessage]], name: String, attributes: Seq[String]): CreateResult = {
+  private def create(from: ActorRef[CreateResult],
+                     receivers: Set[ActorRef[DataNode.AcceptedMessage]], name: String, attributes: Seq[String]) = {
     var newHyperSpace = new HyperSpace(attributes,NUM_DATANODES)
     val bucketSize = 100 / NUM_DATANODES
     hyperSpaceMapping += (name -> newHyperSpace)
@@ -99,9 +98,9 @@ object GatewayNode {
 
       dataNodeMapping += (partOfHyperSpace -> dataNode)
       partOfHyperSpace += 1
-      dataNode ! Create(ctx.self,name, attributes, bucketSize)
+      dataNode ! Create(from,name, attributes, bucketSize)
     }
-    CreateResult(true)
+
   }
 
   /**
@@ -159,9 +158,11 @@ object GatewayNode {
 
   }
 
-  private def lookup(ctx: ActorContext[GatewayMessage], receivers: Set[ActorRef[DataNode.AcceptedMessage]], table: String, key: Key ): Unit = {
+  private def lookup(from: ActorRef[LookupResult], receivers: Set[ActorRef[DataNode.AcceptedMessage]], table: String, key: Key ) = {
     var dataNodeIndex = key % NUM_DATANODES
-    dataNodeMapping(dataNodeIndex) ! Lookup(ctx.self, table, key)
+    dataNodeMapping(dataNodeIndex) ! Lookup(from, table, key)
+
+
   }
 
   // TODO: route queries to hyperspace object
@@ -172,7 +173,7 @@ object GatewayNode {
         // get Future from Hyperspace
         // call onComplete and send value back to requeste
         ctx.log.info(s"Received lookup on table:  ${table}, key: ${key}")
-        lookup(ctx, receivers, table, key)
+        lookup(from, receivers, table, key)
         Behaviors.same
       }
       case Search(from, table, mapping) => {
