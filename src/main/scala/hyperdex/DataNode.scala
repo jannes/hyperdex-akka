@@ -4,10 +4,9 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
 import hyperdex.API.{Attribute, AttributeMapping, Key}
-import scala.collection.mutable.Map
 import hyperdex.DataNode.bucketSize
 
-import scala.collection.mutable.Set
+import scala.collection.immutable.Set
 
 object DataNode {
 
@@ -18,7 +17,6 @@ object DataNode {
   type TableData = Map[Key, AttributeMapping]
   type TableAttributeHashing = Map[String, Array[Set[Int]]]
   type Table = (AttributeNames, TableData, TableAttributeHashing)
-  type AttributeMapping = Map[String, Attribute]
 
   val exampleKeyVal: TableData = Map(0 -> Map("at1" -> 0, "at2" -> 1))
   val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal, Map())
@@ -55,14 +53,17 @@ object DataNode {
             tables.get(tableName) match {
               case Some(targetTable) => {
                 val attributes = targetTable._1
-                var data: Map[Int, Map[String, Int]] = targetTable._2
-                data += (key -> mapping)
-                tables(tableName) = (attributes, data, targetTable._3)
-
-                context.log.info(data.size.toString())
-                from ! GatewayNode.PutResult(true)
-                running(tables)
-              }
+                val data = targetTable._2
+                val givenAttributes = mapping.keys.toSet
+                if (givenAttributes != attributes) {
+                  from ! GatewayNode.PutResult(false)
+                  Behaviors.same
+                } else {
+                  from ! GatewayNode.PutResult(true)
+                  val updatedData = data.+((key, mapping))
+                  val updatedTable = (attributes, updatedData, targetTable._3)
+                  running(tables.+((tableName, updatedTable)))
+              }}
               case None => {
                 from ! GatewayNode.PutResult(false)
                 Behaviors.same
@@ -114,12 +115,10 @@ object DataNode {
             context.log.info(s"received create from ${from}")
             bucketSize = bucketsize
             var attributeHashing: Map[String, Array[Set[Int]]] = Map()
-            var attributeSet: Set[String] = Set()
             for(attribute <- attributes){
               attributeHashing += (attribute -> initBuckets(bucketSize))
-              attributeSet ++ attribute
             }
-            val newTable: Table = (attributeSet, Map(), attributeHashing)
+            val newTable: Table = (attributes.toSet, Map.empty, attributeHashing)
             val newTables = tables.+((tableName, newTable))
             from ! GatewayNode.CreateResult(true)
             running(newTables)
@@ -141,8 +140,9 @@ object DataNode {
         .forall(b => b == true)
     }
 
-    tableData.filter(kv => matches(kv._2, query))
-
+    tableData.toSet
+      .filter(kv => matches(kv._2, query))
+      .toMap
   }
 
 }

@@ -6,7 +6,6 @@ import sttp.tapir.json.play._
 import sttp.tapir.CodecFormat._
 
 import scala.util.Try
-import scala.collection.mutable.Map
 
 object API {
 

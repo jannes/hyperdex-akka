@@ -5,7 +5,6 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import hyperdex.API.{Attribute, AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
-import scala.collection.mutable.Map
 
 object GatewayNode {
 

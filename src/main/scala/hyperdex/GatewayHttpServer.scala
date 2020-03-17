@@ -9,7 +9,6 @@ import akka.util.Timeout
 import hyperdex.API.{AttributeMapping, Create, Error, Get, Key, Put, Search}
 import hyperdex.GatewayNode.GatewayMessage
 import sttp.tapir.server.akkahttp._
-import scala.collection.mutable.Map
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
