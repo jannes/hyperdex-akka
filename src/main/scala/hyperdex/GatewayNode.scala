@@ -3,7 +3,7 @@ package hyperdex
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
-import hyperdex.API.{AttributeMapping, Key}
+import hyperdex.API.{Attribute, AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
 
 object GatewayNode {
@@ -20,7 +20,10 @@ object GatewayNode {
   final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends Query
   final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends Query
   final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends Query
-  final case class Create(from: ActorRef[CreateResult], table: String, attributes: Seq[String]) extends Query
+  final case class PutAttribute(from: ActorRef[PutResult], table: String, key: Int, hashValue: Int, attribute: String) extends Query
+  final case class PutObject(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends Query
+
+  final case class Create(from: ActorRef[CreateResult], table: String, attributes: Seq[String], bucketSize: Int) extends Query
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
@@ -52,7 +55,13 @@ object GatewayNode {
   def initTestHyperSpace(ctx: ActorContext[GatewayMessage],
                          receivers: Set[ActorRef[DataNode.AcceptedMessage]]) = {
     create(ctx, receivers, "TestTable1", Seq("attribute1","attribute2", "attribute3"))
+    val r = scala.util.Random
 
+    for(a <- 0 until 1000){
+      var mapping = Map[String, Attribute]("attribute1" -> r.nextInt(10), "attribute2" -> r.nextInt(400),"attribute3" ->  r.nextInt(100) )
+      var testobj = Map[Key, AttributeMapping] (a -> mapping )
+      put(ctx, receivers, mapping, a, "TestTable1")
+    }
 //    val objects: Array[AttributeMapping] = generateTestObjects(10000).filter(x => x != null);
 //    var IDs: Array[Int] = objects.map( x => x("Id") );
 //    var attr1list: Array[Int] = objects.map( x => x("attribute1") );
@@ -64,16 +73,31 @@ object GatewayNode {
 //    return hyperspace
   }
 
+  private def put(ctx: ActorContext[GatewayMessage], receivers: Set[ActorRef[DataNode.AcceptedMessage]], mapping: AttributeMapping, key: Key, table: String): PutResult ={
+    var hyperSpace = hyperSpaceMapping(table)
+    for(attribute <- mapping){
+      var hashIndex = hyperSpace.hashValue(attribute._2);
+      var dataNodeIndex = hyperSpace.obtainDataNodeIndex(hashIndex)
+      dataNodeMapping(dataNodeIndex) ! PutAttribute(ctx.self,table, key, hashIndex, attribute._1)
+    }
+
+    var dataNodeIndex = key % NUM_DATANODES
+    dataNodeMapping(dataNodeIndex) ! PutObject(ctx.self, table, key, mapping)
+
+    PutResult(true)
+  }
+
   private def create(ctx: ActorContext[GatewayMessage],
                      receivers: Set[ActorRef[DataNode.AcceptedMessage]], name: String, attributes: Seq[String]): CreateResult = {
     var newHyperSpace = new HyperSpace(attributes,NUM_DATANODES)
+    val bucketSize = 100 / NUM_DATANODES
     hyperSpaceMapping += (name -> newHyperSpace)
-    var partOfHyperSpace= 1
+    var partOfHyperSpace= 0
     for(dataNode <- receivers){
 
       dataNodeMapping += (partOfHyperSpace -> dataNode)
       partOfHyperSpace += 1
-      dataNode ! Create(ctx.self,name, attributes)
+      dataNode ! Create(ctx.self,name, attributes, bucketSize)
     }
     CreateResult(true)
   }
@@ -152,8 +176,10 @@ object GatewayNode {
 //        }
 
       }
-      case Put(from, table, key, mapping) => {}
-      case Create(from, table, attributes) => {
+      case Put(from, table, key, mapping) => {
+        from ! put(ctx, receivers, mapping, key, table)
+      }
+      case Create(from, table, attributes, bucketSize) => {
         from ! create(ctx, receivers, table, attributes)
 
       }

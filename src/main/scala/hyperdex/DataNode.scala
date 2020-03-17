@@ -4,6 +4,7 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
 import hyperdex.API.{Attribute, AttributeMapping, Key}
+import hyperdex.DataNode.bucketSize
 
 import scala.collection.immutable.Set
 
@@ -20,7 +21,7 @@ object DataNode {
   val exampleKeyVal: TableData = Map(0 -> Map("at1" -> 0, "at2" -> 1))
   val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal, Map())
   val tables: Map[String, Table] = Map("test" -> exampleTable)
-  val bucketSize = 25
+  var bucketSize: Int = 0
 
   def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     ctx.log.info("registering with receptionist")
@@ -49,22 +50,28 @@ object DataNode {
             from ! GatewayNode.LookupResult(optResult)
             Behaviors.same
           }
-          case GatewayNode.Put(from, tableName, key, mapping) => {
+          case GatewayNode.PutObject(from, tableName, key, mapping) => {
             context.log.debug(s"received put from ${from}")
             tables.get(tableName) match {
               case Some(targetTable) => {
                 val attributes = targetTable._1
-                val data = targetTable._2
-                val givenAttributes = mapping.keys.toSet
-                if (givenAttributes != attributes) {
-                  from ! GatewayNode.PutResult(false)
-                  Behaviors.same
-                } else {
-                  from ! GatewayNode.PutResult(true)
-                  val updatedData = data.+((key, mapping))
-                  val updatedTable = (attributes, updatedData, targetTable._3)
-                  running(tables.+((tableName, updatedTable)))
-                }
+                var data = targetTable._2
+                data.get(key) -> mapping
+                from ! GatewayNode.PutResult(true)
+                Behaviors.same
+              }
+              case None => {
+                from ! GatewayNode.PutResult(false)
+                Behaviors.same
+              }
+            }
+          }
+          case GatewayNode.PutAttribute(from, table, key, hashValue, attribute)  => {
+            tables.get(table) match {
+              case Some(targetTable) => {
+                targetTable._3(attribute)(hashValue) += key
+                from ! GatewayNode.PutResult(true)
+                Behaviors.same
               }
               case None => {
                 from ! GatewayNode.PutResult(false)
@@ -98,8 +105,9 @@ object DataNode {
               }
             }
           }
-          case GatewayNode.Create(from, tableName, attributes) => {
+          case GatewayNode.Create(from, tableName, attributes, bucketsize) => {
             context.log.info(s"received create from ${from}")
+            bucketSize = bucketsize
             var attributeHashing: Map[String, Array[Set[Int]]] = Map()
             for(attribute <- attributes){
               attributeHashing += (attribute -> initBuckets(bucketSize))

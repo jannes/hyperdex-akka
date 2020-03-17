@@ -33,7 +33,7 @@ object GatewayHttpServer {
     // TODO: better error reporting
     def createRouteLogic(inp: Create.Input): Future[Either[Error, String]] = {
       val createResult: Future[GatewayNode.CreateResult] = typedSystem ? { ref =>
-        GatewayNode.Create(ref, inp.table, inp.attributes)
+        GatewayNode.Create(ref, inp.table, inp.attributes, 0)
       }
 
       createResult
