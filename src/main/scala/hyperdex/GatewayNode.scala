@@ -35,7 +35,7 @@ object GatewayNode {
 
   def actorBehavior(): Behavior[GatewayMessage] = {
     Behaviors.setup { ctx =>
-      ctx.log.info("subscribe to receptionist for receiver nodes")
+      ctx.log.info("Subscribing to receptionist for receiver nodes...")
       ctx.system.receptionist ! Receptionist.subscribe(DataNode.receiverNodeKey, getReceiverAdapter(ctx))
       starting(ctx, Set.empty)
     }
@@ -70,6 +70,7 @@ object GatewayNode {
             running(ctx, newReceivers)
           }
         case _ =>
+          ctx.log.info(s"The gateway first needs enough receivers.")
           Behaviors.same
       }
   }
@@ -92,7 +93,7 @@ object GatewayNode {
         case query: Query =>
           // get the right hyperspace for table
           // handle query through hyperspace
-//          handleQuery(query)
+          // handleQuery(query)
           receivers.head ! query
           Behaviors.same
         case _: DataNodeResponse =>
