@@ -1,19 +1,17 @@
 package hyperdex
 
 import akka.actor.typed.receptionist.Receptionist
+import akka.actor.typed.scaladsl.AskPattern._
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
-import akka.pattern.pipe
-import akka.actor.typed.scaladsl.AskPattern._
-import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import hyperdex.API.{AttributeMapping, Key}
+import hyperdex.API.AttributeMapping
 import hyperdex.DataNode.AcceptedMessage
 
 import scala.collection.mutable
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import scala.concurrent.duration._
 
 object GatewayNode {
 
@@ -24,10 +22,11 @@ object GatewayNode {
 
   /** user queries **/
   sealed trait Query extends GatewayMessage
-  final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends Query
-  final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends Query
-  final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends Query
   final case class Create(from: ActorRef[CreateResult], table: String, attributes: Seq[String]) extends Query
+  sealed trait TableQuery extends Query
+  final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends TableQuery
+  final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends TableQuery
+  final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends TableQuery
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
@@ -60,12 +59,12 @@ object GatewayNode {
   /**
     * stage of resolving all data nodes
     * @param ctx
-    * @param receivers
+    * @param dataNodes
     * @return
     */
   private def starting(
     ctx: ActorContext[GatewayMessage],
-    receivers: Set[ActorRef[DataNode.AcceptedMessage]],
+    dataNodes: Set[ActorRef[DataNode.AcceptedMessage]],
   ): Behavior[GatewayMessage] = {
 
     Behaviors
@@ -86,13 +85,13 @@ object GatewayNode {
   /**
     * the runtime behavior after all setup has completed
     * @param ctx
-    * @param receivers
+    * @param dataNodes
     * @return
     */
   private def running(
     ctx: ActorContext[GatewayMessage],
     hyperspaces: Map[String, HyperSpace],
-    receivers: Seq[ActorRef[DataNode.AcceptedMessage]]
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
   ): Behavior[GatewayMessage] = {
 
     Behaviors
@@ -100,18 +99,17 @@ object GatewayNode {
 
         case Create(from, table, attributes) =>
           val newHyperspace = new HyperSpace(attributes, NUM_DATANODES, 2)
-          receivers.foreach(dataNode => dataNode ! Create(ctx.self, table, attributes))
+          dataNodes.foreach(dataNode => dataNode ! Create(ctx.self, table, attributes))
           // TODO: decide when a create result is really successful (could do parallel ask)
           from ! CreateResult(true)
-          running(ctx, hyperspaces.+((table, newHyperspace)), receivers)
-        case query: Query =>
-          handleQuery(query)
-          receivers.head ! query
+          running(ctx, hyperspaces.+((table, newHyperspace)), dataNodes)
+        case tableQuery: TableQuery =>
+          handleTableQuery(tableQuery, ctx, hyperspaces, dataNodes)
           Behaviors.same
         // shouldn't receive any except create result which is ignored
         case _: DataNodeResponse =>
           Behaviors.same
-
+        // should not happen (if it does, system is broken)
         case _: AllReceivers =>
           Behaviors.same
       }
@@ -119,17 +117,17 @@ object GatewayNode {
   }
 
   // TODO: route queries to hyperspace object
-  private def handleQuery(
-    query: GatewayNode.Query,
+  private def handleTableQuery(
+    query: TableQuery,
     ctx: ActorContext[GatewayMessage],
     hyperspaces: Map[String, HyperSpace],
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
   ): Unit = {
 
     // implicits needed for ask pattern
-    implicit val system: ActorSystem[LookupResult] = ??? //ctx.system
+    implicit val system = ctx.system
     implicit val timeout: Timeout = 5.seconds
-    implicit val ec: ExecutionContext = ???
+    implicit val ec: ExecutionContext = ctx.executionContext
 
     def handleValidLookup(lookup: Lookup, hyperspace: HyperSpace) = {
       val key = lookup.key
@@ -142,6 +140,7 @@ object GatewayNode {
         .map(dn => {
           dn ? [LookupResult](ref => Lookup(ref, table, key))
         })
+        .toSeq
 
       val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
         answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
@@ -151,7 +150,7 @@ object GatewayNode {
         var nonExceptionLookups = mutable.Set.empty[LookupResult]
         for (tried <- seq) {
           tried match {
-            case Success(value) => nonExceptionLookups.+(value)
+            case Success(value) => nonExceptionLookups.add(value)
             case Failure(exception) =>
               ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
           }
@@ -190,6 +189,7 @@ object GatewayNode {
     def handleValidPut(put: Put, hyperSpace: HyperSpace): Unit = ???
     def handleValidSearch(search: Search, hyperSpace: HyperSpace): Unit = ???
 
+    // TODO: error when table does not exist
     query match {
       case lookup @ Lookup(from, table, key) =>
         hyperspaces.get(table) match {
