@@ -11,12 +11,16 @@ object Main {
   case object GatewayNodeRole extends Role
   case object DataNodeRole extends Role
 
+  var NUM_DATANODES: Int = -1;
+
   def main(args: Array[String]): Unit = {
-    require(args.length == 2, "Usage: role port")
+    require(args.length >= 2, "Usage: role port")
     args(0) match {
       case "data" =>
         startup(DataNodeRole, args(1).toInt)
       case "gateway" =>
+        require(args.length == 3, "Usage: role port num_datanodes")
+        NUM_DATANODES = args(2).toInt
         startup(GatewayNodeRole, args(1).toInt)
       case _ =>
         println("supplied wrong role")
