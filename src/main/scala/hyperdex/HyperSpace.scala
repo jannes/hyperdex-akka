@@ -1,8 +1,8 @@
 package hyperdex
 
-import hyperdex.API.AttributeMapping
+import hyperdex.API.{Attribute, AttributeMapping, Key}
 
-import scala.collection.mutable.Set
+import scala.collection.immutable.Set
 
 /**
   * representing a Hyperspace of a Table
@@ -12,10 +12,19 @@ import scala.collection.mutable.Set
   * @param IDs array with all the unique identifiers of all the objects
   * @param attributeValuesList arrays containing the data per column
   */
-class HyperSpace(attributes :List[String], bucketAmount: Int, objects: Array[AttributeMapping], IDs: Array[Int], attributeValuesList: Array[Array[Int]]) {
-  var amountOfNodes = 0;
+class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
+  var amountOfNodes = amountNodes;
   var objectMapping : Map[Int,AttributeMapping] = Map()
-  initObjectMapping(objects, IDs)
+  var bucketAmount = 100;
+
+  case class Region(sectionPerAxis: Seq[Int])
+  /**
+    * find responsible nodes for a lookup
+    * @param key
+    * @return
+    */
+  def getResponsibleNodeIds(key: Key): Set[Int] =
+    getPossibleRegions(Some(key), Map.empty).map(regionToNode)
 
   /**
     * find responsible nodes for a new item to be put
@@ -26,37 +35,7 @@ class HyperSpace(attributes :List[String], bucketAmount: Int, objects: Array[Att
   def getResponsibleNodeIds(key: Key, value: AttributeMapping): Set[Int] =
     getPossibleRegions(Some(key), value).map(regionToNode)
 
-  def hashAttributes(values: Array[Int], ids: Array[Int], bucketsize: Int, buckets: Array[Set[Int]])= {
-    for(x <- values.indices){
-      var hashValue = values(x).hashCode() % bucketsize;
-      buckets(hashValue) += ids(x)
-    }
-  }
-
-  def initBuckets(size: Int): Array[Set[Int]] = {
-    var arr = new Array[Set[Int]](size)
-    arr.map(_ => Set[Int]())
-  }
-
-  def initObjectMapping(objects: Array[AttributeMapping], ids: Array[Int]  ) ={
-    for(x <- objects.indices){
-      var obj = objects(x)
-      var id = ids(x)
-      objectMapping += (id -> obj)
-    }
-  }
-
-  def obtainindex(value: Int): Int = {
-    return value.hashCode() % bucketAmount;
-  }
-
-def obtainDataNodeIndex(valueIndex: Int): Int = {
-    var stepsize = bucketAmount / amountOfNodes;
-    Math.floor(valueIndex / stepsize).toInt
-
-  }
-
- /**
+  /**
     * find responsible nodes given a search query
     * @param query
     * @return
@@ -132,6 +111,31 @@ def obtainDataNodeIndex(valueIndex: Int): Int = {
 
   private def getAttributeSection(attributeValue: Attribute): Int = {
     attributeValue % cutsPerAxis
+  }
+
+
+
+  def hashAttributes(values: Array[Int], ids: Array[Int], bucketsize: Int, buckets: Array[Set[Int]])= {
+    for(x <- values.indices){
+      var hashValue = values(x).hashCode() % bucketsize;
+      buckets(hashValue) += ids(x)
+    }
+  }
+
+  def initBuckets(size: Int): Array[Set[Int]] = {
+    var arr = new Array[Set[Int]](size)
+    arr.map(_ => Set[Int]())
+  }
+
+
+  def hashValue(value: Int): Int = {
+    return value.hashCode() % bucketAmount;
+  }
+
+def obtainDataNodeIndex(valueIndex: Int): Int = {
+    var stepsize = bucketAmount / amountOfNodes;
+    Math.floor(valueIndex / stepsize).toInt
+
   }
 
 }

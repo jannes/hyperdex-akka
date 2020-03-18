@@ -48,7 +48,7 @@ object DataNode {
             from ! GatewayNode.LookupResult(optResult)
             Behaviors.same
           }
-          case GatewayNode.PutObject(from, tableName, key, mapping) => {
+          case GatewayNode.Put(from, tableName, key, mapping) => {
             context.log.debug(s"received put from ${from}")
             tables.get(tableName) match {
               case Some(targetTable) => {
@@ -110,9 +110,9 @@ object DataNode {
               }
             }
           }
-          case GatewayNode.Create(from, tableName, attributes, bucketsize) => {
+          case GatewayNode.Create(from, tableName, attributes) => {
             context.log.info(s"received create from ${from}")
-            bucketSize = bucketsize
+            bucketSize = 25
             var attributeHashing: Map[String, Array[Set[Int]]] = Map()
             for(attribute <- attributes){
               attributeHashing += (attribute -> initBuckets(bucketSize))
