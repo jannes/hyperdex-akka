@@ -2,9 +2,18 @@ package hyperdex
 
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.pattern.pipe
+import akka.actor.typed.scaladsl.AskPattern._
+import akka.stream.ActorMaterializer
+import akka.util.Timeout
 import hyperdex.API.{AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
+
+import scala.collection.mutable
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
+import scala.concurrent.duration._
 
 object GatewayNode {
 
@@ -67,7 +76,7 @@ object GatewayNode {
             Behaviors.same
           } else {
             ctx.log.info(s"We have ${newReceivers.size} receivers, so lets start running.")
-            running(ctx, newReceivers)
+            running(ctx, Map.empty, newReceivers.toSeq)
           }
         case _ =>
           Behaviors.same
@@ -82,21 +91,27 @@ object GatewayNode {
     */
   private def running(
     ctx: ActorContext[GatewayMessage],
-//    hyperspaces: Map[String, HyperSpace],
-    receivers: Set[ActorRef[DataNode.AcceptedMessage]],
+    hyperspaces: Map[String, HyperSpace],
+    receivers: Seq[ActorRef[DataNode.AcceptedMessage]]
   ): Behavior[GatewayMessage] = {
 
     Behaviors
       .receiveMessage {
 
+        case Create(from, table, attributes) =>
+          val newHyperspace = new HyperSpace(attributes, NUM_DATANODES, 2)
+          receivers.foreach(dataNode => dataNode ! Create(ctx.self, table, attributes))
+          // TODO: decide when a create result is really successful (could do parallel ask)
+          from ! CreateResult(true)
+          running(ctx, hyperspaces.+((table, newHyperspace)), receivers)
         case query: Query =>
-          // get the right hyperspace for table
-          // handle query through hyperspace
-//          handleQuery(query)
+          handleQuery(query)
           receivers.head ! query
           Behaviors.same
+        // shouldn't receive any except create result which is ignored
         case _: DataNodeResponse =>
           Behaviors.same
+
         case _: AllReceivers =>
           Behaviors.same
       }
@@ -104,23 +119,99 @@ object GatewayNode {
   }
 
   // TODO: route queries to hyperspace object
-  private def handleQuery(query: GatewayNode.Query): Unit = {
+  private def handleQuery(
+    query: GatewayNode.Query,
+    ctx: ActorContext[GatewayMessage],
+    hyperspaces: Map[String, HyperSpace],
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
+  ): Unit = {
+
+    // implicits needed for ask pattern
+    implicit val system: ActorSystem[LookupResult] = ??? //ctx.system
+    implicit val timeout: Timeout = 5.seconds
+    implicit val ec: ExecutionContext = ???
+
+    def handleValidLookup(lookup: Lookup, hyperspace: HyperSpace) = {
+      val key = lookup.key
+      val from = lookup.from
+      val table = lookup.table
+
+      val answers: Seq[Future[LookupResult]] = hyperspace
+        .getResponsibleNodeIds(key)
+        .map(dataNodes(_))
+        .map(dn => {
+          dn ? [LookupResult](ref => Lookup(ref, table, key))
+        })
+
+      val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
+        answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
+      )
+
+      val processedFuture = answersSingleSuccessFuture.map(seq => {
+        var nonExceptionLookups = mutable.Set.empty[LookupResult]
+        for (tried <- seq) {
+          tried match {
+            case Success(value) => nonExceptionLookups.+(value)
+            case Failure(exception) =>
+              ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
+          }
+        }
+        // if exactly one -> return it
+        if (nonExceptionLookups.size == 1) {
+          nonExceptionLookups.head
+        }
+        // if no non-exceptional response -> internal server error
+        else if (nonExceptionLookups.isEmpty) {
+          // TODO: absolutely need error here
+          ctx.log.error("did not got any answers for lookup")
+          LookupResult(None)
+        }
+        // if more than one -> filter Nones and
+        else {
+          val filtered = nonExceptionLookups.toSet.filter(lr => lr.value.isDefined)
+          //// if one -> return it
+          if (filtered.size == 1) {
+            filtered.head
+          }
+          //// if more than one -> inconsistency
+          else {
+            // TODO: need error here
+            ctx.log.error("got inconsistent answers for a lookup")
+            LookupResult(None)
+          }
+        }
+      })
+
+      // send processed result back to gateway server (on completion of future)
+      processedFuture.foreach(lr => from ! lr)
+    }
+
+    // TODO
+    def handleValidPut(put: Put, hyperSpace: HyperSpace): Unit = ???
+    def handleValidSearch(search: Search, hyperSpace: HyperSpace): Unit = ???
+
     query match {
-      case Lookup(from, table, key) => {
-        // get Future from Hyperspace
-        // call onComplete and send value back to requeste
-        from ! LookupResult(Some(Map("key" -> 1, "attr1" -> 2)))
-      }
-      case Search(from, table, mapping) => {
-//        var hyperSpace = hyperSpaces(table);
-//        val coordinates: Map[Int, List[(String, Int)]] = hyperSpace.search(mapping)
-
-//        for (coordinate <- coordinates) {
-//          //from ! SearchResult(coordinates)
-//        }
-
-      }
-      case Put(from, table, key, mapping) => {}
+      case lookup @ Lookup(from, table, key) =>
+        hyperspaces.get(table) match {
+          case Some(hyperspace) =>
+            handleValidLookup(lookup, hyperspace)
+          case None =>
+            from ! LookupResult(None)
+        }
+      case search @ Search(from, table, mapping) =>
+        hyperspaces.get(table) match {
+          case Some(hyperspace) =>
+            handleValidSearch(search, hyperspace)
+          case None =>
+            from ! SearchResult(Map.empty)
+        }
+      case put @ Put(from, table, key, mapping) =>
+        hyperspaces.get(table) match {
+          case Some(hyperspace) =>
+            handleValidPut(put, hyperspace)
+          case None =>
+            from ! PutResult(false)
+        }
     }
   }
 }
