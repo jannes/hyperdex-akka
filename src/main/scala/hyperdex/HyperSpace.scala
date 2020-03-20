@@ -10,6 +10,11 @@ case class Region(sectionPerAxis: Seq[Int])
 class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
 
   /**
+    * ASSUMPTIONS:
+    * all queries with attributes contain only valid attributes,
+    * [no errors when this does not hold, but also no crash]
+    */
+  /**
     * find responsible nodes for a lookup
     * @param key
     * @return
@@ -34,9 +39,16 @@ class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
   def getResponsibleNodeIds(query: AttributeMapping): Set[Int] =
     getPossibleRegions(None, query).map(regionToNode)
 
+  /**
+    * ASSUMPTION: amount of regions is less than integer max value
+    * [crash if that does not hold]
+    */
   val amountRegions: Double = scala.math.pow(cutsPerAxis, attributes.size + 1)
   assert(amountRegions <= Integer.MAX_VALUE)
 
+  /**
+    * for internal use
+    */
   val _regionToNodeMapping: Map[Region, Int] = {
     // toInt should not throw because amountRegions < Int.MAX
     val minAmountRegionsPerNode = (amountRegions / amountNodes).toInt
@@ -79,6 +91,10 @@ class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
     regions.zip(responsibleNodes).toMap
   }
 
+  /**
+    * @param axisSections : a sequence where index denotes an axis and values are sets of section indices
+    * @return the set of regions that corresponds to the areas defined by the axes and their cuts
+    */
   private def axisSectionsToRegions(axisSections: Seq[Set[Int]]): Set[Region] = {
 //    @annotation.tailrec
     def getAllAxisSectionTails(startAxis: Int): Set[Seq[Int]] = {
@@ -100,6 +116,12 @@ class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
       .map(Region)
   }
 
+  /**
+    * resolve a query to the regions that results can possibly reside in
+    * @param optKey
+    * @param attributeValues
+    * @return
+    */
   private def getPossibleRegions(optKey: Option[Key], attributeValues: AttributeMapping): Set[Region] = {
 
     def optAttributeToSection(optAtt: Option[Attribute]): Set[Int] = optAtt match {
