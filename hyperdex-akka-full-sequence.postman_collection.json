@@ -1,7 +1,7 @@
 {
 	"info": {
-		"_postman_id": "ad3fa7a3-56f6-4334-af82-3fe1fd1c2c4a",
-		"name": "hyperdex-akka",
+		"_postman_id": "636e07bf-11cf-4279-a13c-321b72d0172a",
+		"name": "hyperdex-akka-full-sequence",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -19,11 +19,8 @@
 					}
 				}
 			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
 			"request": {
-				"method": "GET",
+				"method": "POST",
 				"header": [],
 				"body": {
 					"mode": "raw",
@@ -63,7 +60,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"Name\" : \"Jannes\",\n    \"Age\" : 24,\n    \"Role\" : \"Student\",\n    \"Favourite food\" : \"Chinese\"\n}",
+					"raw": "{\n    \"Name\" : 1,\n    \"Age\" : 24,\n    \"Role\" : 2,\n    \"Favourite food\" : 2\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -100,7 +97,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"Name\" : \"Vincent\",\n    \"Age\" : 24,\n    \"Role\" : \"Student\",\n    \"Favourite food\" : \"Broodje gezond\"\n}",
+					"raw": "{\n    \"Name\" : 111,\n    \"Age\" : 24,\n    \"Role\" : 2,\n    \"Favourite food\" : 111\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -161,7 +158,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"Role\" : \"Student\"\n}",
+					"raw": "{\n    \"Role\" : 2\n}",
 					"options": {
 						"raw": {
 							"language": "json"
