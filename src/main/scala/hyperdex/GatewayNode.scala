@@ -3,7 +3,7 @@ package hyperdex
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.AskPattern._
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.util.Timeout
 import hyperdex.API.{AttributeMapping, Key}
 import hyperdex.DataNode.AcceptedMessage
@@ -12,7 +12,6 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
 import Main.NUM_DATANODES
 
 object GatewayNode {
@@ -27,8 +26,6 @@ object GatewayNode {
   final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends TableQuery
   final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends TableQuery
   final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends TableQuery
-  final case class PutAttribute(from: ActorRef[PutResult], table: String, key: Int, hashValue: Int, attribute: String)
-      extends TableQuery
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
@@ -192,94 +189,111 @@ object GatewayNode {
   ): Unit = {
 
     // implicits needed for ask pattern
-    implicit val system = ctx.system
+    implicit val system: ActorSystem[Nothing] = ctx.system
     implicit val timeout: Timeout = 5.seconds
     implicit val ec: ExecutionContext = ctx.executionContext
-
-    def handleValidLookup(lookup: Lookup, hyperspace: HyperSpace) = {
-      val key = lookup.key
-      val from = lookup.from
-      val table = lookup.table
-
-      val answers: Seq[Future[LookupResult]] = hyperspace
-        .getResponsibleNodeIds(key)
-        .map(dataNodes(_))
-        .map(dn => {
-          dn ? [LookupResult](ref => Lookup(ref, table, key))
-        })
-        .toSeq
-
-      val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
-        answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
-      )
-
-      val processedFuture = answersSingleSuccessFuture.map(seq => {
-        var nonExceptionLookups = mutable.Set.empty[LookupResult]
-        for (tried <- seq) {
-          tried match {
-            case Success(value) => nonExceptionLookups.add(value)
-            case Failure(exception) =>
-              ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
-          }
-        }
-        // if exactly one -> return it
-        if (nonExceptionLookups.size == 1) {
-          nonExceptionLookups.head
-        }
-        // if no non-exceptional response -> internal server error
-        else if (nonExceptionLookups.isEmpty) {
-          // TODO: absolutely need error here
-          ctx.log.error("did not got any answers for lookup")
-          LookupResult(None)
-        }
-        // if more than one -> filter Nones and
-        else {
-          val filtered = nonExceptionLookups.toSet.filter(lr => lr.value.isDefined)
-          //// if one -> return it
-          if (filtered.size == 1) {
-            filtered.head
-          }
-          //// if more than one -> inconsistency
-          else {
-            // TODO: need error here
-            ctx.log.error("got inconsistent answers for a lookup")
-            LookupResult(None)
-          }
-        }
-      })
-
-      // send processed result back to gateway server (on completion of future)
-      processedFuture.foreach(lr => from ! lr)
-    }
-
-    // TODO
-    def handleValidPut(put: Put, hyperSpace: HyperSpace): Unit = ???
-    def handleValidSearch(search: Search, hyperSpace: HyperSpace): Unit = ???
 
     // TODO: error when table does not exist
     query match {
       case lookup @ Lookup(from, table, key) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
-            handleValidLookup(lookup, hyperspace)
+            handleValidLookup(lookup, ctx, hyperspace, dataNodes)
           case None =>
             from ! LookupResult(None)
         }
       case search @ Search(from, table, mapping) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
-            handleValidSearch(search, hyperspace)
+            handleValidSearch(search, ctx, hyperspace, dataNodes)
           case None =>
             from ! SearchResult(Map.empty)
         }
       case put @ Put(from, table, key, mapping) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
-            handleValidPut(put, hyperspace)
+            handleValidPut(put, ctx, hyperspace, dataNodes)
           case None =>
             from ! PutResult(false)
         }
     }
   }
+
+  def handleValidLookup(
+    lookup: Lookup,
+    ctx: ActorContext[GatewayMessage],
+    hyperspace: HyperSpace,
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
+
+    val key = lookup.key
+    val from = lookup.from
+    val table = lookup.table
+
+    val answers: Seq[Future[LookupResult]] = hyperspace
+      .getResponsibleNodeIds(key)
+      .map(dataNodes(_))
+      .map(dn => {
+        dn ? [LookupResult](ref => Lookup(ref, table, key))
+      })
+      .toSeq
+
+    val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
+      answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
+    )
+
+    val processedFuture = answersSingleSuccessFuture.map(seq => {
+      var nonExceptionLookups = mutable.Set.empty[LookupResult]
+      for (tried <- seq) {
+        tried match {
+          case Success(value) => nonExceptionLookups.add(value)
+          case Failure(exception) =>
+            ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
+        }
+      }
+      // if exactly one -> return it
+      if (nonExceptionLookups.size == 1) {
+        nonExceptionLookups.head
+      }
+      // if no non-exceptional response -> internal server error
+      else if (nonExceptionLookups.isEmpty) {
+        // TODO: absolutely need error here
+        ctx.log.error("did not got any answers for lookup")
+        LookupResult(None)
+      }
+      // if more than one -> filter Nones and
+      else {
+        val filtered = nonExceptionLookups.toSet.filter(lr => lr.value.isDefined)
+        //// if one -> return it
+        if (filtered.size == 1) {
+          filtered.head
+        }
+        //// if more than one -> inconsistency
+        else {
+          // TODO: need error here
+          ctx.log.error("got inconsistent answers for a lookup")
+          LookupResult(None)
+        }
+      }
+    })
+
+    // send processed result back to gateway server (on completion of future)
+    processedFuture.foreach(lr => from ! lr)
+  }
+
+  // TODO
+  def handleValidPut(
+    put: Put,
+    ctx: ActorContext[GatewayMessage],
+    hyperspace: HyperSpace,
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = ???
+
+  def handleValidSearch(
+    search: Search,
+    ctx: ActorContext[GatewayMessage],
+    hyperspace: HyperSpace,
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = ???
 
 }
