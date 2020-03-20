@@ -7,15 +7,33 @@ lazy val root = (project in file("."))
     name := "hyperdex-akka",
     version := "0.1",
     scalaVersion := "2.13.1",
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
-      "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
-      "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
-      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-      "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
-      "com.softwaremill.sttp.tapir" %% "tapir-core" % tapirVersion,
-      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % tapirVersion,
-      "com.softwaremill.sttp.tapir" %% "tapir-json-play" % tapirVersion,
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
-    )
+    mainClass in Compile := Some("hyperdex.Main"),
+    assemblyJarName in assembly := "hyperdex.jar"
   )
+
+libraryDependencies ++= Seq(
+  "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
+  "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
+  "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+  "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
+  "com.softwaremill.sttp.tapir" %% "tapir-core" % tapirVersion,
+  "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % tapirVersion,
+  "com.softwaremill.sttp.tapir" %% "tapir-json-play" % tapirVersion,
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+)
+
+//Merge strategy for duplicated files for creating the fat jar. Used when running `sbt assembly`.
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) =>
+    xs map {_.toLowerCase} match {
+      case "manifest.mf" :: Nil | "index.list" :: Nil | "dependencies" :: Nil =>
+        MergeStrategy.discard
+      case "services" :: xs =>
+        MergeStrategy.filterDistinctLines
+      case _ => MergeStrategy.first
+    }
+  case "application.conf" => MergeStrategy.concat
+  case "reference.conf" => MergeStrategy.concat
+  case _ => MergeStrategy.first
+}

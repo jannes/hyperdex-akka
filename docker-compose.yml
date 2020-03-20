@@ -4,9 +4,9 @@ services:
     tty: true
     build:
       context: .
-      dockerfile: Dockerfile.gateway
-    image: "gateway:latest"
-    command: ["sbt", "-Dconfig.resource=dockercompose.conf", "runMain hyperdex.Main gateway 25251 ${NUM_DATANODES?Please set NUM_DATANODES}"]
+      dockerfile: Dockerfile
+    image: "hyperdex:latest"
+    command: "java -jar hyperdex.jar gateway 25251 ${NUM_DATANODES?Please set NUM_DATANODES}"
     networks:
       akka-network:
         ipv4_address: 172.18.0.22
@@ -16,11 +16,13 @@ services:
     tty: true
     build:
       context: .
-      dockerfile: Dockerfile.datanode
-    image: "datanode:latest"
+      dockerfile: Dockerfile
+    image: "hyperdex:latest"
+    command: "java -jar hyperdex.jar data 25252"
+    depends_on:
+      - gateway
     networks:
       - akka-network
-#        ipv4_address: 172.18.0.23
 networks:
   akka-network:
     ipam:
