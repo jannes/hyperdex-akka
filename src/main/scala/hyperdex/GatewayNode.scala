@@ -54,70 +54,6 @@ object GatewayNode {
     }
   }
 
-//  def initTestHyperSpace(ctx: ActorContext[GatewayMessage], receivers: Seq[ActorRef[DataNode.AcceptedMessage]]) = {
-//    var createRef = ActorRef[CreateResult]
-//    create(createRef, receivers, "TestTable", Seq("attribute1", "attribute2", "attribute3"))
-//    val r = scala.util.Random
-//
-//    for (a <- 0 until 1000) {
-//      var mapping: AttributeMapping =
-//        Map("attribute1" -> r.nextInt(10), "attribute2" -> r.nextInt(400), "attribute3" -> r.nextInt(100))
-//      var testobj = Map[Key, AttributeMapping](a -> mapping)
-//      var putRef = ActorRef[PutResult]
-//      put(putRef, receivers, mapping, a, "TestTable")
-//    }
-//  }
-
-//  private def lookup(
-//                      from: ActorRef[LookupResult],
-//                      receivers: Seq[ActorRef[DataNode.AcceptedMessage]],
-//                      table: String,
-//                      key: Key
-//                    ) = {
-//    var dataNodeIndex = key % NUM_DATANODES
-//    dataNodeMapping(dataNodeIndex) ! Lookup(from, table, key)
-//
-//  }
-
-//  private def put(
-//    from: ActorRef[PutResult],
-//    receivers: Seq[ActorRef[DataNode.AcceptedMessage]],
-//    mapping: AttributeMapping,
-//    key: Key,
-//    table: String,
-//    hyperspaces: Map[String, HyperSpace]
-//  ): Unit = {
-//    var hyperSpace = hyperspaces(table)
-//    for (attribute <- mapping) {
-//      var hashIndex = hyperSpace.hashValue(attribute._2);
-//      var dataNodeIndex = hyperSpace.obtainDataNodeIndex(hashIndex)
-//      receivers(dataNodeIndex) ! PutAttribute(from, table, key, hashIndex, attribute._1)
-//    }
-//
-//    var dataNodeIndex = key % NUM_DATANODES
-//    dataNodeMapping(dataNodeIndex) ! Put(from, table, key, mapping)
-//
-//  }
-//
-//  private def create(
-//    from: ActorRef[CreateResult],
-//    receivers: Seq[ActorRef[DataNode.AcceptedMessage]],
-//    name: String,
-//    attributes: Seq[String]
-//  ) = {
-//    var newHyperSpace = new HyperSpace(attributes, NUM_DATANODES, attributes.size + 1)
-//    val bucketSize = 100 / NUM_DATANODES
-//    hyperSpaceMapping += (name -> newHyperSpace)
-//    var partOfHyperSpace = 0
-//    for (dataNode <- receivers) {
-//
-//      dataNodeMapping += (partOfHyperSpace -> dataNode)
-//      partOfHyperSpace += 1
-//      dataNode ! Create(from, name, attributes)
-//    }
-//
-//  }
-
   /**
     * stage of resolving all data nodes
     * @param ctx
@@ -181,7 +117,15 @@ object GatewayNode {
 
   }
 
-  // TODO: route queries to hyperspace object
+  // TODO: some minimal error handling instead of using null/empty data
+  /**
+    * process a put/get/search by routing to the correct datanodes
+    * and potentially merging results
+    * @param query
+    * @param ctx
+    * @param hyperspaces
+    * @param dataNodes
+    */
   private def handleTableQuery(
     query: TableQuery,
     ctx: ActorContext[GatewayMessage],
@@ -243,7 +187,7 @@ object GatewayNode {
       answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
     )
 
-    val processedFuture = answersSingleSuccessFuture.map(seq => {
+    val processedFuture: Future[LookupResult] = answersSingleSuccessFuture.map(seq => {
       var nonExceptionLookups = mutable.Set.empty[LookupResult]
       for (tried <- seq) {
         tried match {
@@ -282,7 +226,6 @@ object GatewayNode {
     processedFuture.foreach(lr => from ! lr)
   }
 
-  // TODO
   def handleValidPut(
     put: Put,
     ctx: ActorContext[GatewayMessage],
@@ -299,6 +242,38 @@ object GatewayNode {
     ctx: ActorContext[GatewayMessage],
     hyperspace: HyperSpace,
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
-  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = ???
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
+
+    val answers: Seq[Future[SearchResult]] = hyperspace
+      .getResponsibleNodeIds(search.mapping)
+      .map(dataNodes(_))
+      .map(dn => {
+        dn ? [SearchResult](ref => Search(ref, search.table, search.mapping))
+      })
+      .toSeq
+
+    val answersSingleSuccessFuture: Future[Seq[Try[SearchResult]]] = Future.sequence(
+      answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
+    )
+
+    val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {
+      var nonExceptionSearchResults = mutable.Set.empty[SearchResult]
+      for (tried <- seq) {
+        tried match {
+          case Success(value) => nonExceptionSearchResults.add(value)
+          case Failure(exception) =>
+            ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
+        }
+      }
+      val mergedMatches = nonExceptionSearchResults.toSet
+        .map((sr: SearchResult) => sr.objects.toSet[(String, AttributeMapping)])
+        .fold(Set.empty)(_.union(_))
+        .toMap
+      SearchResult(mergedMatches)
+    })
+
+    // send processed result back to gateway server (on completion of future)
+    processedFuture.foreach(sr => search.from ! sr)
+  }
 
 }
