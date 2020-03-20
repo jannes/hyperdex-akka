@@ -58,7 +58,10 @@ class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
 
   //---------------------------------------------------------------------------
 
-  private def regionToNode(r: Region): Int = _regionToNodeMapping(r)
+  private def regionToNode(r: Region): Int = {
+    assert(_regionToNodeMapping.get(r).isDefined, s"region: $r is not defined in mapping")
+    _regionToNodeMapping(r)
+  }
 
   private def getAxisSections(numAxes: Int, cutsPerAxis: Int): Seq[Set[Int]] = {
     (0 until numAxes).map(_ => (0 until cutsPerAxis).toSet)
@@ -137,7 +140,7 @@ class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
   }
 
   private def getAttributeSection(attributeValue: Attribute): Int = {
-    attributeValue % cutsPerAxis
+    math.abs(attributeValue % cutsPerAxis)
   }
 
 }

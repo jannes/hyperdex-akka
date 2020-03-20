@@ -1,7 +1,10 @@
 package hyperdex
 
+import hyperdex.GatewayNode.Put
 import org.scalatest.{BeforeAndAfter, PrivateMethodTester}
 import org.scalatest.funsuite.AnyFunSuite
+
+import scala.util.Random
 
 class HyperSpaceTests extends AnyFunSuite with BeforeAndAfter with PrivateMethodTester {
 
@@ -69,6 +72,24 @@ class HyperSpaceTests extends AnyFunSuite with BeforeAndAfter with PrivateMethod
       assert(simpleHyperspaceEightNodes.getResponsibleNodeIds(key).size >= 4)
       assert(simpleHyperspaceOneNode.getResponsibleNodeIds(key).size >= 1)
       assert(bigHyperSpaceSixNodes.getResponsibleNodeIds(key).size >= 2)
+    }
+  }
+
+  test("hyperspace should route valid put query to exactly one datanode") {
+    val rnd = new Random
+    for (key <- 0 until 1000) {
+      val value = Map("a1" -> rnd.nextInt, "a2" -> rnd.nextInt)
+      assert(simpleHyperspaceOneNode.getResponsibleNodeIds(key, value).size == 1)
+      assert(simpleHyperspaceEightNodes.getResponsibleNodeIds(key, value).size == 1)
+      val valueBig = Map(
+        "a1" -> rnd.nextInt,
+        "a2" -> rnd.nextInt,
+        "a3" -> rnd.nextInt,
+        "a4" -> rnd.nextInt,
+        "a5" -> rnd.nextInt,
+        "a6" -> rnd.nextInt
+      )
+      assert(bigHyperSpaceSixNodes.getResponsibleNodeIds(key, valueBig).size == 1)
     }
   }
 }
