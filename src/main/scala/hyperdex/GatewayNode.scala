@@ -12,7 +12,6 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import Main.NUM_DATANODES
 
 object GatewayNode {
 
@@ -40,11 +39,11 @@ object GatewayNode {
   // to discover receivers
   private final case class AllReceivers(receivers: Set[ActorRef[AcceptedMessage]]) extends RuntimeMessage
 
-  def actorBehavior(): Behavior[GatewayMessage] = {
+  def actorBehavior(numDataNodes: Int): Behavior[GatewayMessage] = {
     Behaviors.setup { ctx =>
       ctx.log.info("Subscribing to receptionist for receiver nodes...")
       ctx.system.receptionist ! Receptionist.subscribe(DataNode.receiverNodeKey, getReceiverAdapter(ctx))
-      starting(ctx, Seq[ActorRef[AcceptedMessage]]())
+      starting(ctx, numDataNodes, Set.empty)
     }
   }
 
@@ -127,17 +126,19 @@ object GatewayNode {
     */
   private def starting(
     ctx: ActorContext[GatewayMessage],
-    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]],
+    requiredAmountDataNodes: Int,
+    dataNodes: Set[ActorRef[DataNode.AcceptedMessage]],
   ): Behavior[GatewayMessage] = {
 
     Behaviors
       .receiveMessage {
         case AllReceivers(newReceivers) =>
-          if (newReceivers.size < NUM_DATANODES) {
-            ctx.log.info(s"Not enough receivers, we have ${newReceivers.size} out of ${NUM_DATANODES}.")
-            Behaviors.same
+          if (newReceivers.size < requiredAmountDataNodes) {
+            ctx.log.info(s"Not enough receivers, we have ${newReceivers.size} out of $requiredAmountDataNodes.")
+            starting(ctx, requiredAmountDataNodes, newReceivers)
           } else {
             ctx.log.info(s"We have ${newReceivers.size} receivers, so lets start running.")
+            // datanodes receive random position in sequence, so random IDs from 0..requiredAmountDataNodes-1
             running(ctx, Map(), newReceivers.toSeq)
           }
         case _ =>
@@ -162,7 +163,7 @@ object GatewayNode {
       .receiveMessage {
 
         case Create(from, table, attributes) =>
-          val newHyperspace = new HyperSpace(attributes, NUM_DATANODES, 2)
+          val newHyperspace = new HyperSpace(attributes, dataNodes.size, 2)
           dataNodes.foreach(dataNode => dataNode ! Create(ctx.self, table, attributes))
           // TODO: decide when a create result is really successful (could do parallel ask)
           from ! CreateResult(true)
@@ -287,7 +288,11 @@ object GatewayNode {
     ctx: ActorContext[GatewayMessage],
     hyperspace: HyperSpace,
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
-  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = ???
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
+    val responsibleDataNodeIds = hyperspace.getResponsibleNodeIds(put.key, put.mapping)
+    assert(responsibleDataNodeIds.size == 1)
+    dataNodes(responsibleDataNodeIds.head) ! put
+  }
 
   def handleValidSearch(
     search: Search,
