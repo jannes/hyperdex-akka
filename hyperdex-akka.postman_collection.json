@@ -1,12 +1,56 @@
 {
 	"info": {
-		"_postman_id": "7f293422-f4a8-4760-b859-60964428217d",
+		"_postman_id": "ad3fa7a3-56f6-4334-af82-3fe1fd1c2c4a",
 		"name": "hyperdex-akka",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "put",
+			"name": "Create table",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "7314263d-491b-493d-bc3f-48bcc422e005",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\n    \"Name\",\n    \"Age\",\n    \"Role\",\n    \"Favourite food\"\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/create/dudes",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"create",
+						"dudes"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Put record \"Jannes\"",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -19,7 +63,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"attr1\": \"hi\",\n    \"attr2\": \"hi2\"\n}",
+					"raw": "{\n    \"Name\" : \"Jannes\",\n    \"Age\" : 24,\n    \"Role\" : \"Student\",\n    \"Favourite food\" : \"Chinese\"\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -27,7 +71,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/put/testtable/testkey",
+					"raw": "http://localhost:8080/put/dudes/1",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -35,15 +79,73 @@
 					"port": "8080",
 					"path": [
 						"put",
-						"testtable",
-						"testkey"
+						"dudes",
+						"1"
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "search",
+			"name": "Put record \"Vincent\"",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"Name\" : \"Vincent\",\n    \"Age\" : 24,\n    \"Role\" : \"Student\",\n    \"Favourite food\" : \"Broodje gezond\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/put/dudes/2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"put",
+						"dudes",
+						"2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get record \"Jannes\"",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/get/dudes/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"get",
+						"dudes",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Search for students",
 			"protocolProfileBehavior": {
 				"disableBodyPruning": true
 			},
@@ -53,13 +155,13 @@
 					{
 						"key": "Content-Type",
 						"name": "Content-Type",
-						"value": "application/json",
-						"type": "text"
+						"type": "text",
+						"value": "application/json"
 					}
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"at1\": 0\n}",
+					"raw": "{\n    \"Role\" : \"Student\"\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -67,7 +169,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/search/exampleTable",
+					"raw": "http://localhost:8080/search/dudes",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -75,30 +177,8 @@
 					"port": "8080",
 					"path": [
 						"search",
-						"exampleTable"
+						"dudes"
 					]
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "create",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": ""
-				}
-			},
-			"response": []
-		},
-		{
-			"name": "get",
-			"request": {
-				"method": "GET",
-				"header": [],
-				"url": {
-					"raw": ""
 				}
 			},
 			"response": []

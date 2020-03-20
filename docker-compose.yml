@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile.gateway
     image: "gateway:latest"
+    command: ["sbt", "-Dconfig.resource=dockercompose.conf", "runMain hyperdex.Main gateway 25251 ${NUM_DATANODES?Please set NUM_DATANODES}"]
     networks:
       akka-network:
         ipv4_address: 172.18.0.22

@@ -32,10 +32,18 @@ do GET localhost:8080/get/test/0 to get some example data
 
 
 ## Docker and `docker-compose`
-Just run `docker-compose up` and wait for everything to start. You can now GET `localhost:8080/get/table/1`
-NOTE: if you want to rebuild the images you have to run `docker-compose up --build` (so with build flag).
+First set the NUM_DATANODES environment variable (`$env:NUM_DATANODES=X` in Powershell).
+Then run 
 
-Run `docker-compose up --scale datanode=2` for running with 2 (or more) data nodes.
+`docker-compose up --build --scale datanode=$env:NUM_DATANODES` 
+
+(change the env var substition for it to work in your shell) for running with `X` data nodes.
+You can now GET/POST as described above.
+NOTE: Don't forget that if you want to rebuild the images (because you might have changed something in the source code,
+for example) you have to run `docker-compose` with the `--build` flag.
+
+
+ 
 
 ---
 
