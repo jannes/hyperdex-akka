@@ -14,9 +14,6 @@ services:
       - "8080:8080"
   datanode:
     tty: true
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: "hyperdex:latest"
     command: "java -jar hyperdex.jar data 25252"
     depends_on:
