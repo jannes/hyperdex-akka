@@ -150,14 +150,24 @@ object GatewayNode {
       case search @ Search(from, table, mapping) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
-            handleValidSearch(search, ctx, hyperspace, dataNodes)
+            // if mapping contains invalid attributes
+            // TODO: return actual invalid attribute error
+            if (hyperspace.attributes.toSet.union(mapping.keys.toSet) != hyperspace.attributes.toSet)
+              from ! SearchResult(Map.empty)
+            else
+              handleValidSearch(search, ctx, hyperspace, dataNodes)
           case None =>
             from ! SearchResult(Map.empty)
         }
       case put @ Put(from, table, key, mapping) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
-            handleValidPut(put, ctx, hyperspace, dataNodes)
+            // if mapping contains invalid attributes
+            // TODO: return actual invalid attribute error
+            if (hyperspace.attributes.toSet != mapping.keys.toSet)
+              from ! PutResult(false)
+            else
+              handleValidPut(put, ctx, hyperspace, dataNodes)
           case None =>
             from ! PutResult(false)
         }
@@ -202,7 +212,7 @@ object GatewayNode {
       }
       // if no non-exceptional response -> internal server error
       else if (nonExceptionLookups.isEmpty) {
-        // TODO: absolutely need error here
+        // TODO: internal server error
         ctx.log.error("did not got any answers for lookup")
         LookupResult(None)
       }
@@ -215,7 +225,7 @@ object GatewayNode {
         }
         //// if more than one -> inconsistency
         else {
-          // TODO: need error here
+          // TODO: inconsistent result error
           ctx.log.error("got inconsistent answers for a lookup")
           LookupResult(None)
         }

@@ -7,7 +7,7 @@ import scala.collection.immutable.Set
 // axis 0: key, axis 1..n: attr1 ... attrn
 case class Region(sectionPerAxis: Seq[Int])
 
-class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
+class HyperSpace(val attributes: Seq[String], val amountNodes: Int, val cutsPerAxis: Int) {
 
   /**
     * ASSUMPTIONS:
@@ -67,6 +67,8 @@ class HyperSpace(attributes: Seq[String], amountNodes: Int, cutsPerAxis: Int) {
     (0 until numAxes).map(_ => (0 until cutsPerAxis).toSet)
   }
 
+  // TODO: (potentially) assign nodes in a way that they get a clustered set of regions
+  //  in order to reduce amount of nodes contacted in a search
   /**
     * create a random mapping from regions to nodes which is evenly distributed
     * (amounts of regions a node is responsible for differ at most by 1)

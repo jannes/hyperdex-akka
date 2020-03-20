@@ -53,6 +53,7 @@ object DataNode {
                 val data = targetTable._2
                 val givenAttributes = mapping.keys.toSet
                 if (givenAttributes != attributes) {
+                  // should not happen, gateway's responsibility to check
                   from ! GatewayNode.PutResult(false)
                   Behaviors.same
                 } else {
@@ -62,7 +63,9 @@ object DataNode {
                   running(tables.+((tableName, updatedTable)))
                 }
               }
+              // this should never happen as the gateway checks for existance of table
               case None => {
+                context.log.error(s"table $tableName does not exist")
                 from ! GatewayNode.PutResult(false)
                 Behaviors.same
               }
@@ -76,8 +79,8 @@ object DataNode {
                 val data = targetTable._2
                 val givenAttributes = mapping.keys.toSet
                 if (givenAttributes.diff(attributes).nonEmpty) {
-                  context.log.debug(s"some of the given attributes do not exist in table")
-                  // TODO: report error instead of empty set
+                  // should not happen, gateway's responsibility to check
+                  context.log.error(s"some of the given attributes do not exist in table")
                   from ! GatewayNode.SearchResult(Map.empty)
                 } else {
                   val searchResult = search(data, mapping)
@@ -88,9 +91,9 @@ object DataNode {
                 }
                 Behaviors.same
               }
+              // this should never happen as the gateway checks for existance of table
               case None => {
-                context.log.debug(s"table $tableName does not exist")
-                // TODO: report error instead of empty set
+                context.log.error(s"table $tableName does not exist")
                 from ! GatewayNode.SearchResult(Map.empty)
                 Behaviors.same
               }
