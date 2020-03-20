@@ -3,6 +3,7 @@ package hyperdex
 import play.api.libs.json.{JsError, JsResult, Json, Reads, Writes}
 import sttp.tapir.{EndpointInput, _}
 import sttp.tapir.json.play._
+import sttp.tapir.CodecFormat._
 
 import scala.util.Try
 

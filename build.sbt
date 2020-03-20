@@ -17,5 +17,6 @@ lazy val root = (project in file("."))
       "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % tapirVersion,
       "com.softwaremill.sttp.tapir" %% "tapir-json-play" % tapirVersion,
       "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "org.scalatest" %% "scalatest" % "3.1.1" % "test"
     )
   )
