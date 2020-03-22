@@ -2,26 +2,24 @@ package hyperdex
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior}
-
 import com.typesafe.config.ConfigFactory
 
 object Main {
 
   sealed trait Role
-  case object GatewayNodeRole extends Role
+  case class GatewayNodeRole(numDataNodes: Int) extends Role
   case object DataNodeRole extends Role
-
-  var NUM_DATANODES: Int = -1;
 
   def main(args: Array[String]): Unit = {
     require(args.length >= 2, "Usage: role port")
+    val port = args(1).toInt
     args(0) match {
       case "data" =>
-        startup(DataNodeRole, args(1).toInt)
+        startup(DataNodeRole, port)
       case "gateway" =>
         require(args.length == 3, "Usage: role port num_datanodes")
-        NUM_DATANODES = args(2).toInt
-        startup(GatewayNodeRole, args(1).toInt)
+        val numDataNodes = args(2).toInt
+        startup(GatewayNodeRole(numDataNodes), port)
       case _ =>
         println("supplied wrong role")
         System.exit(1)
@@ -40,9 +38,9 @@ object Main {
         val system =
           ActorSystem[Nothing](DataNodeRootBehavior(), "ClusterSystem", config)
       }
-      case GatewayNodeRole => {
+      case GatewayNodeRole(numDataNodes) => {
         val system =
-          ActorSystem(GatewayNode.actorBehavior(), "ClusterSystem", config)
+          ActorSystem(GatewayNode.actorBehavior(numDataNodes), "ClusterSystem", config)
         GatewayHttpServer.run("0.0.0.0", 8080, system)
       }
     }
