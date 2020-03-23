@@ -32,18 +32,21 @@ do GET localhost:8080/get/test/0 to get some example data
 
 
 ## Docker and `docker-compose`
-First set the `NUM_DATANODES` environment variable (`$env:NUM_DATANODES=X` in Powershell).
-Then run 
-
-`docker-compose up --build --scale datanode=$env:NUM_DATANODES` 
-
-(change the env var substition for it to work in your shell)
+First set the `NUM_DATANODES` environment variable:
+- Powershell: `$env:NUM_DATANODES=X` 
+- Bash: `NUM_DATANODES=X`
+ 
+ Do note that this variable value is not persistent (it is lost when you close the shell). If you want it to be persistent you have to export it.
+Then, run: 
+- Powershell: `docker-compose up --build --scale datanode=$env:NUM_DATANODES`
+- Bash: `docker-compose up --build --scale datanode=$NUM_DATANODES`
 
 You can now GET/POST as described above.
 NOTE: Don't forget that if you want to rebuild the images (because you might have changed something in the source code,
 for example) you have to run `docker-compose` with the `--build` flag.
+
 ---
-In case you need it here are the commands to build and run the docker containers separately:
+In the rare case you need it here are the commands to build and run the docker containers separately:
 
 First build the container (mind the `.` at the end):
 1. `docker build -t hyperdex:latest -f Dockerfile .`
