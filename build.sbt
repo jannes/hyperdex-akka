@@ -2,14 +2,20 @@ val akkaVersion = "2.6.3"
 val akkaHttpVersion = "10.1.11"
 val tapirVersion = "0.12.23"
 
+enablePlugins(GatlingPlugin)
+
 lazy val root = (project in file("."))
   .settings(
     name := "hyperdex-akka",
     version := "0.1",
-    scalaVersion := "2.13.1",
+    scalaVersion := "2.12.1",
     mainClass in Compile := Some("hyperdex.Main"),
     assemblyJarName in assembly := "hyperdex.jar"
   )
+
+scalacOptions := Seq(
+  "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
+  "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
@@ -21,7 +27,9 @@ libraryDependencies ++= Seq(
   "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server" % tapirVersion,
   "com.softwaremill.sttp.tapir" %% "tapir-json-play" % tapirVersion,
   "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.scalatest" %% "scalatest" % "3.1.1" % "test"
+  "org.scalatest" %% "scalatest" % "3.1.1" % "test",
+  "io.gatling.highcharts" % "gatling-charts-highcharts" % "3.3.1" % "test,it",
+  "io.gatling"            % "gatling-test-framework"    % "3.3.1" % "test,it"
 )
 
 //Merge strategy for duplicated files for creating the fat jar. Used when running `sbt assembly`.

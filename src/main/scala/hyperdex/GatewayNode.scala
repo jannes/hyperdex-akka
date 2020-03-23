@@ -63,7 +63,7 @@ object GatewayNode {
   private def starting(
     ctx: ActorContext[GatewayMessage],
     requiredAmountDataNodes: Int,
-    dataNodes: Set[ActorRef[DataNode.AcceptedMessage]],
+    dataNodes: Set[ActorRef[DataNode.AcceptedMessage]]
   ): Behavior[GatewayMessage] = {
 
     Behaviors
@@ -194,7 +194,7 @@ object GatewayNode {
       .toSeq
 
     val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
-      answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
+      answers.map(f => f.map(Success(_)))
     )
 
     val processedFuture: Future[LookupResult] = answersSingleSuccessFuture.map(seq => {
@@ -263,7 +263,7 @@ object GatewayNode {
       .toSeq
 
     val answersSingleSuccessFuture: Future[Seq[Try[SearchResult]]] = Future.sequence(
-      answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
+      answers.map(f => f.map(Success(_)))
     )
 
     val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {

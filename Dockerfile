@@ -7,4 +7,4 @@ RUN ["sbt" , "assembly"]
 
 FROM openjdk:8u242-jre
 
-COPY --from=builder /hyperdex-akka/target/scala-2.13/hyperdex.jar /hyperdex.jar
+COPY --from=builder /hyperdex-akka/target/scala-2.12/hyperdex.jar /hyperdex.jar
