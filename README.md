@@ -1,40 +1,41 @@
-## Routes
+This is the repository for the Hyperdex group project of the 2020 Distributed Systems course at TU Delft.  
+We implemented a subset of the Hyperdex system as specififed in the 2012 paper (https://doi.org/10.1145/2342356.2342360).
+
+## Implemented features
+
+- Hyperspace hashing
+- basic create, put, get, search API
+- configurable amount of datanodes
+- in-memory storage
+
+## API
 ### Create
-
-POST /create/"table_name"
-
-with attribute names as json list
+POST /create/"table_name" with attribute names as json list
 
 ### Lookup
-
 GET /get/"table_name"/"key"
 
 ### Put
-
-Post /put/"table_name"/"key"
-
-with value specified as json dictionary
+Post /put/"table_name"/"key" with value specified as json dictionary
 
 ### Search
+GET /search/"table_name"/"key" with attributes values specified as json dictionary
 
-GET /search/"table_name"/"key"
 
-with attributes values specified as json dictionary
+## Run instructions
 
-## Cluster Sender + Receiver
+### locally with single datanode
 in two terminals:
 
 `sbt "runMain hyperdex.Main gateway 25251"`
 
 `sbt "runMain hyperdex.Main data 25252"`
 
-do GET localhost:8080/get/test/0 to get some example data
 
-
-## Docker and `docker-compose`
+### Docker and `docker-compose`
 First set the `NUM_DATANODES` environment variable:
 - Powershell: `$env:NUM_DATANODES=X` 
-- Bash: `NUM_DATANODES=X`
+- Bash: `export NUM_DATANODES=X`
  
  Do note that this variable value is not persistent (it is lost when you close the shell). If you want it to be persistent you have to export it.
 Then, run: 
