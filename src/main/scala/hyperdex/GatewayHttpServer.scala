@@ -7,7 +7,7 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import hyperdex.API.{AttributeMapping, Create, Error, Get, Key, Put, Search}
-import hyperdex.GatewayNode.GatewayMessage
+import hyperdex.GatewayNode.{GatewayMessage, TableNotExistError}
 import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -52,12 +52,14 @@ object GatewayHttpServer {
       }
 
       lookupResult
-        .map(lr => lr.value)
+        .map(lr => lr.result)
         .transformWith {
           case Failure(exception) =>
             Future.successful(Left(exception.getMessage))
-          case Success(value) =>
-            Future.successful(Right(value))
+          case Success(value) => value match {
+            case Left(TableNotExistError) => Future.successful(Left("No such table."))
+            case Right(option) => Future.successful(Right(option))
+          }
         }
     }
 
@@ -70,13 +72,13 @@ object GatewayHttpServer {
 
       putResult
         .transformWith {
-          case Failure(exception) =>
-            Future.successful(Left(exception.getMessage))
-          case Success(value) =>
-            if (value.succeeded)
-              Future.successful(Right("success"))
-            else
-              Future.successful(Right("failure"))
+          case Failure(exception) => Future.successful(Left(exception.getMessage))
+          case Success(value) => value.result match {
+            case Left(TableNotExistError) => Future.successful(Left("No such table."))
+            case Left(error) => Future.successful(Left("Put didn't succeed"))
+            case Right(value) => Future.successful(Right("Put succeeded."))
+
+          }
         }
     }
 
@@ -88,8 +90,8 @@ object GatewayHttpServer {
 
       searchResult
         .map(lr => {
-          println(s"received from data node: ${lr.objects}")
-          lr.objects
+          println(s"received from data node: ${lr.result}")
+          lr.result
         })
         .transformWith {
           case Failure(exception) =>

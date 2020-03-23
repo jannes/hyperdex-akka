@@ -28,11 +28,23 @@ object GatewayNode {
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
-  final case class LookupResult(value: Option[AttributeMapping]) extends DataNodeResponse
+  final case class LookupResult(result: Either[TableNotExistError.type, Option[AttributeMapping]])
+    extends DataNodeResponse
   // in order for cbor/json serialization to work a map can only have strings as keys
-  final case class SearchResult(objects: Map[String, AttributeMapping]) extends DataNodeResponse
-  final case class PutResult(succeeded: Boolean) extends DataNodeResponse
+  final case class SearchResult(result: Either[QueryError, Map[String, AttributeMapping]]) extends DataNodeResponse
+  final case class PutResult(result: Either[QueryError, Boolean]) extends DataNodeResponse
   final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
+
+  /**
+    * errors within messages
+    */
+  sealed trait QueryError
+  final case object TableNotExistError extends QueryError
+  sealed trait AttributeError extends QueryError
+  final case class InvalidAttributeError(invalidAttributes: Set[String]) extends AttributeError
+  final case class IncompleteAttributesError(missingAttributes: Set[String]) extends AttributeError
+  final case object InconsistentResultError extends QueryError
+  final case object InternalServerError extends QueryError
 
   /** configuration messages **/
   sealed trait RuntimeMessage extends GatewayMessage
@@ -145,7 +157,7 @@ object GatewayNode {
           case Some(hyperspace) =>
             handleValidLookup(lookup, ctx, hyperspace, dataNodes)
           case None =>
-            from ! LookupResult(None)
+            from ! LookupResult(Left(TableNotExistError))
         }
       case search @ Search(from, table, mapping) =>
         hyperspaces.get(table) match {
@@ -153,11 +165,11 @@ object GatewayNode {
             // if mapping contains invalid attributes
             // TODO: return actual invalid attribute error
             if (hyperspace.attributes.toSet.union(mapping.keys.toSet) != hyperspace.attributes.toSet)
-              from ! SearchResult(Map.empty)
+              from ! SearchResult(Left(InvalidAttributeError))
             else
               handleValidSearch(search, ctx, hyperspace, dataNodes)
           case None =>
-            from ! SearchResult(Map.empty)
+            from ! SearchResult(Left(TableNotExistError))
         }
       case put @ Put(from, table, key, mapping) =>
         hyperspaces.get(table) match {
@@ -165,11 +177,11 @@ object GatewayNode {
             // if mapping contains invalid attributes
             // TODO: return actual invalid attribute error
             if (hyperspace.attributes.toSet != mapping.keys.toSet)
-              from ! PutResult(false)
+              from ! PutResult(Left(InvalidAttributeError))
             else
               handleValidPut(put, ctx, hyperspace, dataNodes)
           case None =>
-            from ! PutResult(false)
+            from ! PutResult(Left(TableNotExistError))
         }
     }
   }
@@ -214,11 +226,11 @@ object GatewayNode {
       else if (nonExceptionLookups.isEmpty) {
         // TODO: internal server error
         ctx.log.error("did not got any answers for lookup")
-        LookupResult(None)
+        LookupResult(Left(InternalServerError))
       }
       // if more than one -> filter Nones and
       else {
-        val filtered = nonExceptionLookups.toSet.filter(lr => lr.value.isDefined)
+        val filtered = nonExceptionLookups.toSet.filter(lr => lr.result.isRight)
         //// if one -> return it
         if (filtered.size == 1) {
           filtered.head
@@ -227,7 +239,7 @@ object GatewayNode {
         else {
           // TODO: inconsistent result error
           ctx.log.error("got inconsistent answers for a lookup")
-          LookupResult(None)
+          LookupResult(Left(InconsistentResultError))
         }
       }
     })
@@ -276,7 +288,7 @@ object GatewayNode {
         }
       }
       val mergedMatches = nonExceptionSearchResults.toSet
-        .map((sr: SearchResult) => sr.objects.toSet[(String, AttributeMapping)])
+        .map((sr: SearchResult) => sr.result.toSet[(String, AttributeMapping)])
         .fold(Set.empty)(_.union(_))
         .toMap
       SearchResult(mergedMatches)

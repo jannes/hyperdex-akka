@@ -42,7 +42,7 @@ object DataNode {
               .get(table)
               .flatMap(_._2.get(key))
             context.log.debug(s"found object: $optResult")
-            from ! GatewayNode.LookupResult(optResult)
+            from ! GatewayNode.LookupResult(Right(optResult))
             Behaviors.same
           }
           case GatewayNode.Put(from, tableName, key, mapping) => {
@@ -54,19 +54,19 @@ object DataNode {
                 val givenAttributes = mapping.keys.toSet
                 if (givenAttributes != attributes) {
                   // should not happen, gateway's responsibility to check
-                  from ! GatewayNode.PutResult(false)
+                  from ! GatewayNode.PutResult(Right(false))
                   Behaviors.same
                 } else {
-                  from ! GatewayNode.PutResult(true)
+                  from ! GatewayNode.PutResult(Right(true))
                   val updatedData = data.+((key, mapping))
                   val updatedTable = (attributes, updatedData)
                   running(tables.+((tableName, updatedTable)))
                 }
               }
-              // this should never happen as the gateway checks for existance of table
+              // this should never happen as the gateway checks for existence of table
               case None => {
-                context.log.error(s"table $tableName does not exist")
-                from ! GatewayNode.PutResult(false)
+                context.log.error(s"table $tableName does not exist (THIS SHOULD NOT HAPPEN)")
+                from ! GatewayNode.PutResult(Right(false))
                 Behaviors.same
               }
             }
@@ -81,20 +81,20 @@ object DataNode {
                 if (givenAttributes.diff(attributes).nonEmpty) {
                   // should not happen, gateway's responsibility to check
                   context.log.error(s"some of the given attributes do not exist in table")
-                  from ! GatewayNode.SearchResult(Map.empty)
+                  from ! GatewayNode.SearchResult(Right(Map.empty))
                 } else {
                   val searchResult = search(data, mapping)
                   context.log.debug(s"matching objects keys: ${searchResult}")
                   val castedSearchResult = searchResult
                     .map({ case (key, mapping) => (key.toString, mapping) })
-                  from ! GatewayNode.SearchResult(castedSearchResult)
+                  from ! GatewayNode.SearchResult(Right(castedSearchResult))
                 }
                 Behaviors.same
               }
               // this should never happen as the gateway checks for existance of table
               case None => {
                 context.log.error(s"table $tableName does not exist")
-                from ! GatewayNode.SearchResult(Map.empty)
+                from ! GatewayNode.SearchResult(Right(Map.empty))
                 Behaviors.same
               }
             }
