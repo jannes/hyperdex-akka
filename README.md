@@ -51,7 +51,8 @@ In the rare case you need it here are the commands to build and run the docker c
 First build the container (mind the `.` at the end):
 1. `docker build -t hyperdex:latest -f Dockerfile .`
 
-Create a docker network: `docker network create --subnet=172.18.0.0/16 akka-network`
+Create a docker network: `docker network create --subnet=172.18.0.0/16 akka-network` \
+_(make sure to remove the network again if you want to run docker-compose, otherwise it will overlap: `docker network rm akka-network`)_
 
 Then, in separate terminals, run:
 1. `docker run --net=akka-network --ip 172.18.0.22 -p 8080:8080 -it hyperdex:latest java -jar hyperdex.jar gateway 25251 1`
