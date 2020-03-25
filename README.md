@@ -4,6 +4,7 @@ We implemented a subset of the Hyperdex system as specified in the 2012 paper (h
 ## Implemented features
 
 - Hyperspace hashing
+- key subspace
 - basic create, put, get, search API
 - configurable amount of datanodes
 - in-memory storage
@@ -58,3 +59,6 @@ Then, in separate terminals, run:
 1. `docker run --net=akka-network --ip 172.18.0.22 -p 8080:8080 -it hyperdex:latest java -jar hyperdex.jar gateway 25251 1`
 2. `docker run --net=akka-network --ip 172.18.0.23 -it hyperdex:latest java -jar hyperdex.jar data 25252`
 
+
+### Running gatling tests 
+First start the `hyperdex` system as described above. Then, in another terminal, run `sbt gatling:test`. It will run the gatling test as described in the `GatlingTest` folder. The output (including html file) is written to `target/gatling/gatlingtest-*`
