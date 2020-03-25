@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "ad3fa7a3-56f6-4334-af82-3fe1fd1c2c4a",
+		"_postman_id": "32fe91d4-aa74-4a3c-853e-b727274281d6",
 		"name": "hyperdex-akka",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
@@ -19,15 +19,12 @@
 					}
 				}
 			],
-			"protocolProfileBehavior": {
-				"disableBodyPruning": true
-			},
 			"request": {
-				"method": "GET",
+				"method": "POST",
 				"header": [],
 				"body": {
 					"mode": "raw",
-					"raw": "[\n    \"Name\",\n    \"Age\",\n    \"Role\",\n    \"Favourite food\"\n]",
+					"raw": "[\n    \"Attribute 1\",\n    \"Attribute 2\",\n    \"Attribute 3\",\n    \"Attribute 4\",\n    \"Attribute 5\"\n]",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -35,7 +32,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/create/dudes",
+					"raw": "http://localhost:8080/create/table",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -43,14 +40,14 @@
 					"port": "8080",
 					"path": [
 						"create",
-						"dudes"
+						"table"
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "Put record \"Jannes\"",
+			"name": "Put record 1",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -63,7 +60,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"Name\" : \"Jannes\",\n    \"Age\" : 24,\n    \"Role\" : \"Student\",\n    \"Favourite food\" : \"Chinese\"\n}",
+					"raw": "{\n    \"Attribute 1\" : 1,\n    \"Attribute 2\" : 2,\n    \"Attribute 3\" : 3,\n    \"Attribute 4\" : 4,\n    \"Attribute 5\" : 5\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -71,7 +68,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/put/dudes/1",
+					"raw": "http://localhost:8080/put/table/1",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -79,7 +76,7 @@
 					"port": "8080",
 					"path": [
 						"put",
-						"dudes",
+						"table",
 						"1"
 					]
 				}
@@ -87,7 +84,28 @@
 			"response": []
 		},
 		{
-			"name": "Put record \"Vincent\"",
+			"name": "Get record 1",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/get/table/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"get",
+						"table",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Put record 2",
 			"request": {
 				"method": "POST",
 				"header": [
@@ -100,7 +118,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"Name\" : \"Vincent\",\n    \"Age\" : 24,\n    \"Role\" : \"Student\",\n    \"Favourite food\" : \"Broodje gezond\"\n}",
+					"raw": "{\n    \"Attribute 1\" : 100,\n    \"Attribute 2\" : 101,\n    \"Attribute 3\" : 100,\n    \"Attribute 4\" : 1000,\n    \"Attribute 5\" : 10000\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -108,7 +126,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/put/dudes/2",
+					"raw": "http://localhost:8080/put/table/2",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -116,7 +134,7 @@
 					"port": "8080",
 					"path": [
 						"put",
-						"dudes",
+						"table",
 						"2"
 					]
 				}
@@ -124,12 +142,49 @@
 			"response": []
 		},
 		{
-			"name": "Get record \"Jannes\"",
+			"name": "Put record 1990",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"Attribute 1\" : 1994,\n    \"Attribute 2\" : 1995,\n    \"Attribute 3\" : 1996,\n    \"Attribute 4\" : 1997,\n    \"Attribute 5\" : 1999\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/put/table/1990",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"put",
+						"table",
+						"1990"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get record 2",
 			"request": {
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8080/get/dudes/1",
+					"raw": "http://localhost:8080/get/table/2",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -137,15 +192,94 @@
 					"port": "8080",
 					"path": [
 						"get",
-						"dudes",
-						"1"
+						"table",
+						"2"
 					]
 				}
 			},
 			"response": []
 		},
 		{
-			"name": "Search for students",
+			"name": "Get record 1990",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/get/table/1990",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"get",
+						"table",
+						"1990"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Put record 22 (same attributes as 2)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"Attribute 1\" : 100,\n    \"Attribute 2\" : 101,\n    \"Attribute 3\" : 100,\n    \"Attribute 4\" : 1000,\n    \"Attribute 5\" : 10000\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/put/table/22",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"put",
+						"table",
+						"22"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get record 22",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/get/table/2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"get",
+						"table",
+						"2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Search for records with 100s",
 			"protocolProfileBehavior": {
 				"disableBodyPruning": true
 			},
@@ -161,7 +295,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"Role\" : \"Student\"\n}",
+					"raw": "{\n    \"Attribute 1\" : 100\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -178,6 +312,163 @@
 					"path": [
 						"search",
 						"dudes"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Create table2",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"id": "7314263d-491b-493d-bc3f-48bcc422e005",
+						"exec": [
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[\n    \"Attribute\"\n]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/create/table2",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"create",
+						"table2"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Put record 1 in table2",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"Attribute\" : 333\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/put/table2/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"put",
+						"table2",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Put record 1 in table2 (already exists)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"name": "Content-Type",
+						"type": "text",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"Attribute\" : 333\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/put/anotherTable/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"put",
+						"anotherTable",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get record 1 from table2",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/get/table2/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"get",
+						"table2",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get record 3 from table2 (doesn't exist)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/get/table2/3",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"get",
+						"table2",
+						"3"
 					]
 				}
 			},
