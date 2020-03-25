@@ -1,8 +1,7 @@
 package hyperdex
 
-import hyperdex.GatewayNode.Put
-import org.scalatest.{BeforeAndAfter, PrivateMethodTester}
 import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.{BeforeAndAfter, PrivateMethodTester}
 
 import scala.util.Random
 
@@ -62,25 +61,14 @@ class HyperSpaceTests extends AnyFunSuite with BeforeAndAfter with PrivateMethod
     }
   }
 
-  // AS LONG AS KEY LOOKUPS ARE IMPLEMENTED AS SEARCH (WITHOUT KEY SUBSPACE)
-  // TODO: does this really hold for all edge cases ? (should it be rounded down?)
-  test("""hyperspace should return should always return 
-      |at least (1 / <numCuts>) of all nodes (rounded up) 
-      |as possibly responsible for lookup""".stripMargin) {
-    val exampleKeys = 1 to 1000
-    for (key <- exampleKeys) {
-      assert(simpleHyperspaceEightNodes.getResponsibleNodeIds(key).size >= 4)
-      assert(simpleHyperspaceOneNode.getResponsibleNodeIds(key).size >= 1)
-      assert(bigHyperSpaceSixNodes.getResponsibleNodeIds(key).size >= 2)
-    }
-  }
-
-  test("hyperspace should route valid put query to exactly one datanode") {
+  test("hyperspace should route valid put query to exactly one or two datanodes") {
     val rnd = new Random
     for (key <- 0 until 1000) {
       val value = Map("a1" -> rnd.nextInt, "a2" -> rnd.nextInt)
-      assert(simpleHyperspaceOneNode.getResponsibleNodeIds(key, value).size == 1)
-      assert(simpleHyperspaceEightNodes.getResponsibleNodeIds(key, value).size == 1)
+      assert(simpleHyperspaceOneNode.getResponsibleNodeIds(key, value).size >= 1)
+      assert(simpleHyperspaceOneNode.getResponsibleNodeIds(key, value).size <= 2)
+      assert(simpleHyperspaceEightNodes.getResponsibleNodeIds(key, value).size >= 1)
+      assert(simpleHyperspaceEightNodes.getResponsibleNodeIds(key, value).size <= 2)
       val valueBig = Map(
         "a1" -> rnd.nextInt,
         "a2" -> rnd.nextInt,
@@ -89,7 +77,8 @@ class HyperSpaceTests extends AnyFunSuite with BeforeAndAfter with PrivateMethod
         "a5" -> rnd.nextInt,
         "a6" -> rnd.nextInt
       )
-      assert(bigHyperSpaceSixNodes.getResponsibleNodeIds(key, valueBig).size == 1)
+      assert(bigHyperSpaceSixNodes.getResponsibleNodeIds(key, valueBig).size >= 1)
+      assert(bigHyperSpaceSixNodes.getResponsibleNodeIds(key, valueBig).size <= 2)
     }
   }
 }

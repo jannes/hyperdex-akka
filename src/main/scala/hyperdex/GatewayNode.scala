@@ -181,59 +181,9 @@ object GatewayNode {
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
   )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
 
-    val key = lookup.key
-    val from = lookup.from
-    val table = lookup.table
-
-    val answers: Seq[Future[LookupResult]] = hyperspace
-      .getResponsibleNodeIds(key)
-      .map(dataNodes(_))
-      .map(dn => {
-        dn ? [LookupResult](ref => Lookup(ref, table, key))
-      })
-      .toSeq
-
-    val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
-      answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
-    )
-
-    val processedFuture: Future[LookupResult] = answersSingleSuccessFuture.map(seq => {
-      var nonExceptionLookups = mutable.Set.empty[LookupResult]
-      for (tried <- seq) {
-        tried match {
-          case Success(value) => nonExceptionLookups.add(value)
-          case Failure(exception) =>
-            ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
-        }
-      }
-      // if exactly one -> return it
-      if (nonExceptionLookups.size == 1) {
-        nonExceptionLookups.head
-      }
-      // if no non-exceptional response -> internal server error
-      else if (nonExceptionLookups.isEmpty) {
-        // TODO: internal server error
-        ctx.log.error("did not got any answers for lookup")
-        LookupResult(None)
-      }
-      // if more than one -> filter Nones and
-      else {
-        val filtered = nonExceptionLookups.toSet.filter(lr => lr.value.isDefined)
-        //// if one -> return it
-        if (filtered.size == 1) {
-          filtered.head
-        }
-        //// if more than one -> inconsistency
-        else {
-          // TODO: inconsistent result error
-          ctx.log.error("got inconsistent answers for a lookup")
-          LookupResult(None)
-        }
-      }
-    })
-
-    // send processed result back to gateway server (on completion of future)
-    processedFuture.foreach(lr => from ! lr)
+    val responsibleNode = dataNodes(hyperspace.getResponsibleNodeId(lookup.key))
+    // let the single responsible datanode reply to frontend
+    responsibleNode ! lookup
   }
 
   def handleValidPut(
@@ -242,9 +192,41 @@ object GatewayNode {
     hyperspace: HyperSpace,
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
   )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
-    val responsibleDataNodeIds = hyperspace.getResponsibleNodeIds(put.key, put.mapping)
-    assert(responsibleDataNodeIds.size == 1)
-    dataNodes(responsibleDataNodeIds.head) ! put
+
+    val answers: Seq[Future[PutResult]] = hyperspace
+      .getResponsibleNodeIds(put.key, put.mapping)
+      .map(dataNodes(_))
+      .map(dn => {
+        dn ? [PutResult](ref => Put(ref, put.table, put.key, put.mapping))
+      })
+      .toSeq
+
+    val answersSingleSuccessFuture: Future[Seq[Try[PutResult]]] = Future.sequence(
+      answers.map(f => f.map(Success(_)).recover(x => Failure(x)))
+    )
+
+    val processedFuture: Future[PutResult] = answersSingleSuccessFuture.map(seq => {
+      var nonExceptionPutResults = mutable.Set.empty[PutResult]
+      for (tried <- seq) {
+        tried match {
+          case Success(value) => nonExceptionPutResults.add(value)
+          case Failure(exception) =>
+            ctx.log.error(s"exception occurred when asking for put result: ${exception.getMessage}")
+        }
+      }
+      val allNonExceptionsSuccessful = nonExceptionPutResults.toSet
+        .map((r: PutResult) => r.succeeded)
+        .fold(true)(_ && _)
+
+      if (allNonExceptionsSuccessful && answers.size == nonExceptionPutResults.size)
+        PutResult(true)
+      else
+        PutResult(false)
+    })
+
+    // send processed result back to gateway server (on completion of future)
+    processedFuture.foreach(pr => put.from ! pr)
+
   }
 
   def handleValidSearch(
