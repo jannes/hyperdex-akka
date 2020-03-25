@@ -7,7 +7,7 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import hyperdex.API.{AttributeMapping, Create, Error, Get, Key, Put, Search}
-import hyperdex.GatewayNode.{GatewayMessage, TableNotExistError}
+import hyperdex.GatewayNode.{GatewayMessage, IncompleteAttributesError, InvalidAttributeError, QueryError, TableNotExistError}
 import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -75,7 +75,8 @@ object GatewayHttpServer {
           case Failure(exception) => Future.successful(Left(exception.getMessage))
           case Success(value) => value.result match {
             case Left(TableNotExistError) => Future.successful(Left("No such table."))
-            case Left(error) => Future.successful(Left("Put didn't succeed"))
+            case Left(InvalidAttributeError(invalidAttributes)) => Future.successful(Left(s"Provided attributes do not exist: ${invalidAttributes}"))
+            case Left(IncompleteAttributesError(missingAttributes)) =>  Future.successful(Left(s"Missing the following attributes: ${missingAttributes}"))
             case Right(value) => Future.successful(Right("Put succeeded."))
 
           }
@@ -97,8 +98,13 @@ object GatewayHttpServer {
           case Failure(exception) =>
             Future.successful(Left(exception.getMessage))
           case Success(value) => {
-            val castedValue = value.map({ case (key, mapping) => (key.toInt, mapping) })
-            Future.successful(Right(castedValue.toSet))
+            value match{
+              case Left(TableNotExistError) => Future.successful(Left("No such table"))
+              case Left(InvalidAttributeError(invalidAttributes)) => Future.successful(Left(s"Provided attributes do not exist: ${invalidAttributes}"))
+              case Right(value) =>
+                Future.successful(Right(value.toSet))
+            }
+
           }
         }
     }
