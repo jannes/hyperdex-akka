@@ -28,10 +28,9 @@ object GatewayNode {
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
-  final case class LookupResult(result: Either[QueryError, Option[AttributeMapping]])
-    extends DataNodeResponse
+  final case class LookupResult(result: Either[QueryError, Option[AttributeMapping]]) extends DataNodeResponse
   // in order for cbor/json serialization to work a map can only have strings as keys
-  final case class SearchResult(result: Either[QueryError, Map[Key, AttributeMapping]]) extends DataNodeResponse
+  final case class SearchResult(result: Either[QueryError, Map[String, AttributeMapping]]) extends DataNodeResponse
   final case class PutResult(result: Either[QueryError, Boolean]) extends DataNodeResponse
   final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
 
@@ -163,8 +162,7 @@ object GatewayNode {
             if (hyperspace.attributes.toSet != mapping.keys.toSet) {
               if (!mapping.keys.map(x => hyperspace.attributes.contains(x)).forall(x => x))
                 from ! SearchResult(Left(InvalidAttributeError(mapping.keys.toSet.diff(hyperspace.attributes.toSet))))
-            }
-            else
+            } else
               handleValidSearch(search, ctx, hyperspace, dataNodes)
 
           case None =>
@@ -179,8 +177,7 @@ object GatewayNode {
                 from ! PutResult(Left(InvalidAttributeError(mapping.keys.toSet.diff(hyperspace.attributes.toSet))))
               else if (hyperspace.attributes.toSet.size > mapping.keys.toSet.size)
                 from ! PutResult(Left(IncompleteAttributesError(hyperspace.attributes.toSet.diff(mapping.keys.toSet))))
-            }
-            else
+            } else
               handleValidPut(put, ctx, hyperspace, dataNodes)
           case None =>
             from ! PutResult(Left(TableNotExistError))
@@ -214,9 +211,10 @@ object GatewayNode {
       var nonExceptionLookups = mutable.Set.empty[Option[AttributeMapping]]
       for (tried <- seq) {
         tried match {
-          case Success(value) => value.result match{
-            case Right(value) => nonExceptionLookups.add(value)
-          }
+          case Success(value) =>
+            value.result match {
+              case Right(value) => nonExceptionLookups.add(value)
+            }
           case Failure(exception) =>
             ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
         }
@@ -280,27 +278,27 @@ object GatewayNode {
     )
     ctx.log.info(answersSingleSuccessFuture.isCompleted.toString)
     val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {
-      var nonExceptionSearchResults = mutable.Set.empty[Map[Key, AttributeMapping]]
-      var exception : QueryError = null
+      var nonExceptionSearchResults = mutable.Set.empty[Map[String, AttributeMapping]]
+      var exception: QueryError = null
       for (tried <- seq) {
         tried match {
           case Success(value) =>
             value.result match {
-              case Left(value) => exception = value
-              case Right(value) =>   nonExceptionSearchResults.add(value)
+              case Left(value)  => exception = value
+              case Right(value) => nonExceptionSearchResults.add(value)
             }
 
           case Failure(exception) =>
             ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
         }
       }
-      if(exception == null){
+      if (exception == null) {
         val mergedMatches = nonExceptionSearchResults.toSet
-          .map((sr: Map[Key, AttributeMapping]) =>   sr.toSet[(Key, AttributeMapping)])
+          .map((sr: Map[String, AttributeMapping]) => sr.toSet[(String, AttributeMapping)])
           .fold(Set.empty)(_.union(_))
           .toMap
         SearchResult(Right(mergedMatches))
-      }else{
+      } else {
 
         SearchResult(Left(exception))
       }
