@@ -4,6 +4,7 @@ We implemented a subset of the Hyperdex system as specified in the 2012 paper (h
 ## Implemented features
 
 - Hyperspace hashing
+- key subspace
 - basic create, put, get, search API
 - configurable amount of datanodes
 - in-memory storage

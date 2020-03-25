@@ -9,35 +9,13 @@ case class Region(sectionPerAxis: Seq[Int])
 
 class HyperSpace(val attributes: Seq[String], val amountNodes: Int, val cutsPerAxis: Int) {
 
-  /**
-    * ASSUMPTIONS:
-    * all queries with attributes contain only valid attributes,
-    * [no errors when this does not hold, but also no crash]
-    */
-  /**
-    * find responsible nodes for a lookup
-    * @param key
-    * @return
-    */
-  def getResponsibleNodeIds(key: Key): Set[Int] =
-    getPossibleRegions(Some(key), Map.empty).map(regionToNode)
+  class KeySubspace(val amountNodes: Int) {
+    def getResponsibleNode(key: Key): Int = {
+      math.abs(key % amountNodes)
+    }
+  }
 
-  /**
-    * find responsible nodes for a new item to be put
-    * @param key
-    * @param value
-    * @return
-    */
-  def getResponsibleNodeIds(key: Key, value: AttributeMapping): Set[Int] =
-    getPossibleRegions(Some(key), value).map(regionToNode)
-
-  /**
-    * find responsible nodes given a search query
-    * @param query
-    * @return
-    */
-  def getResponsibleNodeIds(query: AttributeMapping): Set[Int] =
-    getPossibleRegions(None, query).map(regionToNode)
+  val _keySubspace = new KeySubspace(amountNodes)
 
   /**
     * ASSUMPTION: amount of regions is less than integer max value
@@ -55,6 +33,38 @@ class HyperSpace(val attributes: Seq[String], val amountNodes: Int, val cutsPerA
     val amountNodesWithExtraRegion = (amountRegions % amountNodes).toInt
     createRegionNodeMapping(minAmountRegionsPerNode, amountNodesWithExtraRegion)
   }
+
+  /**
+    * ASSUMPTIONS:
+    * all queries with attributes contain only valid attributes,
+    * [no errors when this does not hold, but also no crash]
+    */
+  /**
+    * find responsible node for a lookup
+    * @param key
+    * @return
+    */
+  def getResponsibleNodeId(key: Key): Int =
+    _keySubspace.getResponsibleNode(key)
+
+  /**
+    * find responsible nodes for a new item to be put
+    * @param key
+    * @param value
+    * @return
+    */
+  def getResponsibleNodeIds(key: Key, value: AttributeMapping): Set[Int] =
+    getPossibleRegions(Some(key), value)
+      .map(regionToNode)
+      .+(_keySubspace.getResponsibleNode(key))
+
+  /**
+    * find responsible nodes given a search query
+    * @param query
+    * @return
+    */
+  def getResponsibleNodeIds(query: AttributeMapping): Set[Int] =
+    getPossibleRegions(None, query).map(regionToNode)
 
   //---------------------------------------------------------------------------
 
