@@ -14,8 +14,16 @@ lazy val root = (project in file("."))
   )
 
 scalacOptions := Seq(
-  "-encoding", "UTF-8", "-target:jvm-1.8", "-deprecation",
-  "-feature", "-unchecked", "-language:implicitConversions", "-language:postfixOps")
+  "-encoding",
+  "UTF-8",
+  "-target:jvm-1.8",
+  "-deprecation",
+  "-feature",
+  "-unchecked",
+  "-language:implicitConversions",
+  "-language:postfixOps",
+  "-language:higherKinds"
+)
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-actor-typed" % akkaVersion,
@@ -29,13 +37,13 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.scalatest" %% "scalatest" % "3.1.1" % "test",
   "io.gatling.highcharts" % "gatling-charts-highcharts" % "3.3.1" % "test,it",
-  "io.gatling"            % "gatling-test-framework"    % "3.3.1" % "test,it"
+  "io.gatling" % "gatling-test-framework" % "3.3.1" % "test,it"
 )
 
 //Merge strategy for duplicated files for creating the fat jar. Used when running `sbt assembly`.
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) =>
-    xs map {_.toLowerCase} match {
+    xs.map { _.toLowerCase } match {
       case "manifest.mf" :: Nil | "index.list" :: Nil | "dependencies" :: Nil =>
         MergeStrategy.discard
       case "services" :: xs =>
@@ -43,6 +51,6 @@ assemblyMergeStrategy in assembly := {
       case _ => MergeStrategy.first
     }
   case "application.conf" => MergeStrategy.concat
-  case "reference.conf" => MergeStrategy.concat
-  case _ => MergeStrategy.first
+  case "reference.conf"   => MergeStrategy.concat
+  case _                  => MergeStrategy.first
 }

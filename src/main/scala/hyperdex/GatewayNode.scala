@@ -194,7 +194,9 @@ object GatewayNode {
       .toSeq
 
     val answersSingleSuccessFuture: Future[Seq[Try[LookupResult]]] = Future.sequence(
-      answers.map(f => f.map(Success(_)))
+      answers.map(f => {
+        f.map(Success(_)).recover({ case x: Throwable => Failure(x) })
+      })
     )
 
     val processedFuture: Future[LookupResult] = answersSingleSuccessFuture.map(seq => {
@@ -263,7 +265,9 @@ object GatewayNode {
       .toSeq
 
     val answersSingleSuccessFuture: Future[Seq[Try[SearchResult]]] = Future.sequence(
-      answers.map(f => f.map(Success(_)))
+      answers.map(f => {
+        f.map(Success(_)).recover({ case x: Throwable => Failure(x) })
+      })
     )
 
     val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {
