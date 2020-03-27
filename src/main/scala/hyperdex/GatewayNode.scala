@@ -11,7 +11,7 @@ import hyperdex.MessageProtocol._
 
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object GatewayNode {
@@ -20,6 +20,7 @@ object GatewayNode {
   sealed trait RuntimeMessage extends GatewayMessage
   // to discover receivers
   private final case class AllReceivers(receivers: Set[ActorRef[AcceptedMessage]]) extends RuntimeMessage
+  private final case class CreateSuccess(tableName: String, newHyperspace: HyperSpace) extends RuntimeMessage
 
   def actorBehavior(numDataNodes: Int): Behavior[GatewayMessage] = {
     Behaviors.setup { ctx =>
@@ -85,14 +86,15 @@ object GatewayNode {
       .receiveMessage {
         case create @ Create(from, table, attributes) =>
           val newHyperspace = new HyperSpace(attributes, dataNodes.size, 2)
-          val success = handleValidCreate(create, ctx, newHyperspace, dataNodes)
-          if (success)
-            running(ctx, hyperspaces.+((table, newHyperspace)), dataNodes)
-          else
-            Behaviors.same
+          handleValidCreate(create, ctx, newHyperspace, dataNodes)
+          Behaviors.same
         case tableQuery: TableQuery =>
           handleTableQuery(tableQuery, ctx, hyperspaces, dataNodes)
           Behaviors.same
+        case createSuccess: CreateSuccess =>
+          val name = createSuccess.tableName
+          val hyperspace = createSuccess.newHyperspace
+          running(ctx, hyperspaces.+((name, hyperspace)), dataNodes)
         // shouldn't receive any except create result which is ignored
         case _: DataNodeResponse =>
           Behaviors.same
@@ -159,20 +161,19 @@ object GatewayNode {
     ctx: ActorContext[GatewayMessage],
     hyperspace: HyperSpace,
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
-  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Boolean = {
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
+
     val answers: Seq[Future[CreateResult]] = dataNodes
       .map(dn => { dn ? [CreateResult](ref => Create(ref, create.table, create.attributes)) })
-      .toSeq
-
     val answersSingleSuccessFuture: Future[Seq[Try[CreateResult]]] = Future.sequence(
       answers.map(f => f.map(Success(_)).recover({ case x: Throwable => Failure(x) }))
     )
 
     val processedFuture: Future[CreateResult] = answersSingleSuccessFuture.map(seq => {
-      val allPutSuccessful = seq
+      val allCreateSuccessful = seq
         .map {
           case Failure(exception) => {
-            ctx.log.error(s"encountered exception when waiting for put response: ${exception.getMessage}")
+            ctx.log.error(s"encountered exception when waiting for create response: ${exception.getMessage}")
             false
           }
           case Success(value) =>
@@ -185,16 +186,23 @@ object GatewayNode {
         }
         .forall(succeeded => succeeded == true)
 
-      if (allPutSuccessful)
+      if (allCreateSuccessful)
         CreateResult(Right(true))
       else
         CreateResult(Left(TimeoutError))
     })
-    // send processed result back to gateway server (on completion of future)
+
     processedFuture.foreach(pr => {
+      // send processed result back to gateway server
       create.from ! pr
+      // send create success to self if it succeeded
+      pr.result match {
+        case Left(error) =>
+          ctx.log.error("didn't receive create responses from all data ndoes")
+        case Right(_) =>
+          ctx.self ! CreateSuccess(create.table, hyperspace)
+      }
     })
-    Await.result(processedFuture, timeout.duration).result.isRight
   }
 
   def handleValidLookup(

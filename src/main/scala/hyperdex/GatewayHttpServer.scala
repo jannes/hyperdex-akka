@@ -115,10 +115,6 @@ object GatewayHttpServer {
       }
 
       searchResult
-        .map(lr => {
-          println(s"received from data node: ${lr.result}")
-          lr
-        })
         .transformWith {
           case Failure(exception) =>
             Future.successful(Left(API.InternalError(exception.getMessage)))

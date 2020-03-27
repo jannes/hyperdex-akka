@@ -3,8 +3,8 @@ package hyperdex
 import akka.actor.typed.Behavior
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
-import hyperdex.API.{Attribute, AttributeMapping, Key}
-import MessageProtocol._
+import hyperdex.API.{AttributeMapping, Key}
+import hyperdex.MessageProtocol._
 
 object DataNode {
 
