@@ -1,17 +1,17 @@
 package hyperdex
 
 import akka.actor.typed.receptionist.Receptionist
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.util.Timeout
-import hyperdex.API.{AttributeMapping, Key}
+import hyperdex.API.AttributeMapping
 import hyperdex.DataNode.AcceptedMessage
 import hyperdex.MessageProtocol._
 
 import scala.collection.mutable
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object GatewayNode {
@@ -77,14 +77,19 @@ object GatewayNode {
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
   ): Behavior[GatewayMessage] = {
 
+    implicit val system: ActorSystem[Nothing] = ctx.system
+    implicit val timeout: Timeout = 5.seconds
+    implicit val ec: ExecutionContext = ctx.executionContext
+
     Behaviors
       .receiveMessage {
-
-        case Create(from, table, attributes) =>
+        case create @ Create(from, table, attributes) =>
           val newHyperspace = new HyperSpace(attributes, dataNodes.size, 2)
-          dataNodes.foreach(dataNode => dataNode ! Create(ctx.self, table, attributes))
-          from ! CreateResult(true)
-          running(ctx, hyperspaces.+((table, newHyperspace)), dataNodes)
+          val success = handleValidCreate(create, ctx, newHyperspace, dataNodes)
+          if (success)
+            running(ctx, hyperspaces.+((table, newHyperspace)), dataNodes)
+          else
+            Behaviors.same
         case tableQuery: TableQuery =>
           handleTableQuery(tableQuery, ctx, hyperspaces, dataNodes)
           Behaviors.same
@@ -95,7 +100,6 @@ object GatewayNode {
         case _: AllReceivers =>
           Behaviors.same
       }
-
   }
 
   /**
@@ -111,12 +115,8 @@ object GatewayNode {
     ctx: ActorContext[GatewayMessage],
     hyperspaces: Map[String, HyperSpace],
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
-  ): Unit = {
-
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
     // implicits needed for ask pattern
-    implicit val system: ActorSystem[Nothing] = ctx.system
-    implicit val timeout: Timeout = 5.seconds
-    implicit val ec: ExecutionContext = ctx.executionContext
 
     query match {
       case lookup @ Lookup(from, table, key) =>
@@ -152,6 +152,49 @@ object GatewayNode {
             from ! PutResult(Left(TableNotExistError))
         }
     }
+  }
+
+  def handleValidCreate(
+    create: Create,
+    ctx: ActorContext[GatewayMessage],
+    hyperspace: HyperSpace,
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Boolean = {
+    val answers: Seq[Future[CreateResult]] = dataNodes
+      .map(dn => { dn ? [CreateResult](ref => Create(ref, create.table, create.attributes)) })
+      .toSeq
+
+    val answersSingleSuccessFuture: Future[Seq[Try[CreateResult]]] = Future.sequence(
+      answers.map(f => f.map(Success(_)).recover({ case x: Throwable => Failure(x) }))
+    )
+
+    val processedFuture: Future[CreateResult] = answersSingleSuccessFuture.map(seq => {
+      val allPutSuccessful = seq
+        .map {
+          case Failure(exception) => {
+            ctx.log.error(s"encountered exception when waiting for put response: ${exception.getMessage}")
+            false
+          }
+          case Success(value) =>
+            value.result match {
+              // never happens
+              case Left(value) => false
+              // should always be true as put should never fail
+              case Right(succeeded) => succeeded
+            }
+        }
+        .forall(succeeded => succeeded == true)
+
+      if (allPutSuccessful)
+        CreateResult(Right(true))
+      else
+        CreateResult(Left(InternalServerError))
+    })
+    // send processed result back to gateway server (on completion of future)
+    processedFuture.foreach(pr => {
+      create.from ! pr
+    })
+    Await.result(processedFuture, timeout.duration).result.isRight
   }
 
   def handleValidLookup(

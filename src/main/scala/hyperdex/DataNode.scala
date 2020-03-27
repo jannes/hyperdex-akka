@@ -104,7 +104,7 @@ object DataNode {
             context.log.info(s"received create from ${from}")
             val newTable: Table = (attributes.toSet, Map.empty)
             val newTables = tables.+((tableName, newTable))
-            from ! CreateResult(true)
+            from ! CreateResult(Right(true))
             running(newTables)
           }
         }

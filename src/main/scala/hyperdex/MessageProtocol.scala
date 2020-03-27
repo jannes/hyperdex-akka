@@ -22,7 +22,7 @@ object MessageProtocol {
   // in order for cbor/json serialization to work a map can only have strings as keys
   final case class SearchResult(result: Either[QueryError, Map[String, AttributeMapping]]) extends DataNodeResponse
   final case class PutResult(result: Either[QueryError, Boolean]) extends DataNodeResponse
-  final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
+  final case class CreateResult(result: Either[QueryError, Boolean]) extends DataNodeResponse
 
   /**
     * errors within messages

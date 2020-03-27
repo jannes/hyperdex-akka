@@ -39,7 +39,11 @@ object GatewayHttpServer {
           case Failure(exception) =>
             Future.successful(Left(exception.getMessage))
           case Success(value) =>
-            Future.successful(Right(value.succeeded.toString))
+            value.result match {
+              case Left(InternalServerError) =>
+                Future.successful(Left("One of the datanodes did not respond, table was not created"))
+              case Right(value) => Future.successful(Right("Create successful"))
+            }
         }
     }
 
@@ -105,7 +109,7 @@ object GatewayHttpServer {
             value match {
               case Left(TableNotExistError) => Future.successful(Left("No such table"))
               case Left(InvalidAttributeError(invalidAttributes)) =>
-                Future.successful(Left(s"Provided attributes do not exist: ${invalidAttributes}"))
+                Future.successful(Left(s"Provided attributes do not exist: $invalidAttributes"))
               case Right(value) =>
                 val castedValue = value.map({ case (key, mapping) => (key.toInt, mapping) })
                 Future.successful(Right(castedValue.toSet))
