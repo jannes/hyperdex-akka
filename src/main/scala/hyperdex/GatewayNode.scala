@@ -159,11 +159,9 @@ object GatewayNode {
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             // if mapping contains invalid attributes
-            if (hyperspace.attributes.toSet != mapping.keys.toSet) {
-              if (!mapping.keys.map(x => hyperspace.attributes.contains(x)).forall(x => x))
+            if (!mapping.keys.map(x => hyperspace.attributes.contains(x)).forall(x => x))
                 from ! SearchResult(Left(InvalidAttributeError(mapping.keys.toSet.diff(hyperspace.attributes.toSet))))
-            } else
-              handleValidSearch(search, ctx, hyperspace, dataNodes)
+            handleValidSearch(search, ctx, hyperspace, dataNodes)
 
           case None =>
             from ! SearchResult(Left(TableNotExistError))
@@ -264,7 +262,7 @@ object GatewayNode {
         f.map(Success(_)).recover({ case x: Throwable => Failure(x) })
       })
     )
-    ctx.log.info(answersSingleSuccessFuture.isCompleted.toString)
+
     val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {
       var nonExceptionSearchResults = mutable.Set.empty[Map[String, AttributeMapping]]
       var exception: QueryError = null
