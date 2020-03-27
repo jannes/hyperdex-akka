@@ -4,12 +4,13 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.Behaviors
 import hyperdex.API.{Attribute, AttributeMapping, Key}
+import MessageProtocol._
 
 object DataNode {
 
   val receiverNodeKey: ServiceKey[AcceptedMessage] = ServiceKey("Receiver")
 
-  type AcceptedMessage = GatewayNode.Query
+  type AcceptedMessage = Query
   type AttributeNames = Set[String]
   type TableData = Map[Key, AttributeMapping]
   type Table = (AttributeNames, TableData)
@@ -36,16 +37,16 @@ object DataNode {
     Behaviors.receive[AcceptedMessage] {
       case (context, message) =>
         message match {
-          case GatewayNode.Lookup(from, table, key) => {
+          case Lookup(from, table, key) => {
             context.log.debug(s"received LookupMessage for key: $key from: $from")
             val optResult = tables
               .get(table)
               .flatMap(_._2.get(key))
             context.log.debug(s"found object: $optResult")
-            from ! GatewayNode.LookupResult(Right(optResult))
+            from ! LookupResult(Right(optResult))
             Behaviors.same
           }
-          case GatewayNode.Put(from, tableName, key, mapping) => {
+          case Put(from, tableName, key, mapping) => {
             context.log.debug(s"received put from ${from}")
             tables.get(tableName) match {
               case Some(targetTable) => {
@@ -54,10 +55,10 @@ object DataNode {
                 val givenAttributes = mapping.keys.toSet
                 if (givenAttributes != attributes) {
                   // should not happen, gateway's responsibility to check
-                  from ! GatewayNode.PutResult(Right(false))
+                  from ! PutResult(Right(false))
                   Behaviors.same
                 } else {
-                  from ! GatewayNode.PutResult(Right(true))
+                  from ! PutResult(Right(true))
                   val updatedData = data.+((key, mapping))
                   val updatedTable = (attributes, updatedData)
                   running(tables.+((tableName, updatedTable)))
@@ -66,12 +67,12 @@ object DataNode {
               // this should never happen as the gateway checks for existence of table
               case None => {
                 context.log.error(s"table $tableName does not exist (THIS SHOULD NOT HAPPEN)")
-                from ! GatewayNode.PutResult(Right(false))
+                from ! PutResult(Right(false))
                 Behaviors.same
               }
             }
           }
-          case GatewayNode.Search(from, tableName, mapping) => {
+          case Search(from, tableName, mapping) => {
             context.log.debug(s"received search from ${from}")
             tables.get(tableName) match {
               case Some(targetTable) => {
@@ -81,29 +82,29 @@ object DataNode {
                 if (givenAttributes.diff(attributes).nonEmpty) {
                   // should not happen, gateway's responsibility to check
                   context.log.error(s"some of the given attributes do not exist in table")
-                  from ! GatewayNode.SearchResult(Right(Map.empty))
+                  from ! SearchResult(Right(Map.empty))
                 } else {
                   val searchResult = search(data, mapping)
                   context.log.debug(s"matching objects keys: ${searchResult}")
                   val castedSearchResult = searchResult
                     .map({ case (key, mapping) => (key.toString, mapping) })
-                  from ! GatewayNode.SearchResult(Right(castedSearchResult))
+                  from ! SearchResult(Right(castedSearchResult))
                 }
                 Behaviors.same
               }
               // this should never happen as the gateway checks for existance of table
               case None => {
                 context.log.error(s"table $tableName does not exist")
-                from ! GatewayNode.SearchResult(Right(Map.empty))
+                from ! SearchResult(Right(Map.empty))
                 Behaviors.same
               }
             }
           }
-          case GatewayNode.Create(from, tableName, attributes) => {
+          case Create(from, tableName, attributes) => {
             context.log.info(s"received create from ${from}")
             val newTable: Table = (attributes.toSet, Map.empty)
             val newTables = tables.+((tableName, newTable))
-            from ! GatewayNode.CreateResult(true)
+            from ! CreateResult(true)
             running(newTables)
           }
         }

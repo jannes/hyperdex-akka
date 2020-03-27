@@ -1,11 +1,7 @@
 package hyperdex
 
-import play.api.libs.json.{JsError, JsResult, Json, Reads, Writes}
-import sttp.tapir.{EndpointInput, _}
 import sttp.tapir.json.play._
-import sttp.tapir.CodecFormat._
-
-import scala.util.Try
+import sttp.tapir.{EndpointInput, _}
 
 object API {
 
@@ -13,6 +9,10 @@ object API {
   type Attribute = Int
   type AttributeMapping = Map[String, Attribute]
   type Error = String
+
+  sealed trait ErrorInfo
+  case class InternalError(message: String) extends ErrorInfo
+  case class BadRequestError(message: String) extends ErrorInfo
 
   object Create {
     case class Input(table: String, attributes: Seq[String])

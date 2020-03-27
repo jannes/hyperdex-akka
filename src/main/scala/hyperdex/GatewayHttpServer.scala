@@ -6,14 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import hyperdex.API.{AttributeMapping, Create, Error, Get, Key, Put, Search}
-import hyperdex.GatewayNode.{
-  GatewayMessage,
-  IncompleteAttributesError,
-  InvalidAttributeError,
-  QueryError,
-  TableNotExistError
-}
+import hyperdex.MessageProtocol._
 import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,9 +29,9 @@ object GatewayHttpServer {
     implicit val timeout: Timeout = 10.seconds
 
     // TODO: better error reporting
-    def createRouteLogic(inp: Create.Input): Future[Either[Error, String]] = {
-      val createResult: Future[GatewayNode.CreateResult] = typedSystem ? { ref =>
-        GatewayNode.Create(ref, inp.table, inp.attributes)
+    def createRouteLogic(inp: API.Create.Input): Future[Either[API.Error, String]] = {
+      val createResult: Future[CreateResult] = typedSystem ? { ref =>
+        Create(ref, inp.table, inp.attributes)
       }
 
       createResult
@@ -51,10 +44,10 @@ object GatewayHttpServer {
     }
 
     // TODO: better error reporting
-    def getRouteLogic(inp: Get.Input): Future[Either[Error, Option[AttributeMapping]]] = {
+    def getRouteLogic(inp: API.Get.Input): Future[Either[API.Error, Option[API.AttributeMapping]]] = {
 
-      val lookupResult: Future[GatewayNode.LookupResult] = typedSystem ? { ref =>
-        GatewayNode.Lookup(ref, inp.table, inp.key)
+      val lookupResult: Future[LookupResult] = typedSystem ? { ref =>
+        Lookup(ref, inp.table, inp.key)
       }
 
       lookupResult
@@ -72,10 +65,10 @@ object GatewayHttpServer {
     }
 
     // TODO: better error reporting
-    def putRouteLogic(inp: Put.Input): Future[Either[Error, String]] = {
+    def putRouteLogic(inp: API.Put.Input): Future[Either[API.Error, String]] = {
 
-      val putResult: Future[GatewayNode.PutResult] = typedSystem ? { ref =>
-        GatewayNode.Put(ref, inp.table, inp.key, inp.value)
+      val putResult: Future[PutResult] = typedSystem ? { ref =>
+        Put(ref, inp.table, inp.key, inp.value)
       }
 
       putResult
@@ -95,9 +88,9 @@ object GatewayHttpServer {
     }
 
     // TODO: better error reporting
-    def searchRouteLogic(inp: Search.Input): Future[Either[Error, Set[(Key, AttributeMapping)]]] = {
-      val searchResult: Future[GatewayNode.SearchResult] = typedSystem ? { ref =>
-        GatewayNode.Search(ref, inp.table, inp.query)
+    def searchRouteLogic(inp: API.Search.Input): Future[Either[API.Error, Set[(API.Key, API.AttributeMapping)]]] = {
+      val searchResult: Future[SearchResult] = typedSystem ? { ref =>
+        Search(ref, inp.table, inp.query)
       }
 
       searchResult
@@ -122,10 +115,10 @@ object GatewayHttpServer {
         }
     }
 
-    val getRoute = Get.endp.toRoute(getRouteLogic)
-    val putRoute = Put.endp.toRoute(putRouteLogic)
-    val searchRoute = Search.endp.toRoute(searchRouteLogic)
-    val createRoute = Create.endp.toRoute(createRouteLogic)
+    val getRoute = API.Get.endp.toRoute(getRouteLogic)
+    val putRoute = API.Put.endp.toRoute(putRouteLogic)
+    val searchRoute = API.Search.endp.toRoute(searchRouteLogic)
+    val createRoute = API.Create.endp.toRoute(createRouteLogic)
     val routes = {
       import akka.http.scaladsl.server.Directives._
       getRoute ~ putRoute ~ searchRoute ~ createRoute
