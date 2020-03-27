@@ -10,6 +10,10 @@ We implemented a subset of the Hyperdex system as specified in the 2012 paper (h
 - in-memory storage
 
 ## API
+
+note: we only implemented integer values and keys, attribute names are strings  
+example requests can be found in the postman collections
+
 ### Create
 POST /create/"table_name" with attribute names as json list
 
