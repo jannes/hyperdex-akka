@@ -15,14 +15,10 @@ object DataNode {
   type TableData = Map[Key, AttributeMapping]
   type Table = (AttributeNames, TableData)
 
-  val exampleKeyVal = Map(0 -> Map("at1" -> 0, "at2" -> 1))
-  val exampleTable: Table = (Set("at1", "at2"), exampleKeyVal)
-  val tables: Map[String, Table] = Map("test" -> exampleTable)
-
   def apply(): Behavior[AcceptedMessage] = Behaviors.setup { ctx =>
     ctx.log.info("registering with receptionist")
     ctx.system.receptionist ! Receptionist.register(receiverNodeKey, ctx.self)
-    running(tables)
+    running(Map.empty)
   }
 
   /**
