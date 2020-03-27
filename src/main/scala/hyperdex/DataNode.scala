@@ -103,7 +103,7 @@ object DataNode {
             context.log.info(s"received create from ${from}")
             val newTable: Table = (attributes.toSet, Map.empty)
             val newTables = tables.+((tableName, newTable))
-            from ! GatewayNode.CreateResult(true)
+            from ! GatewayNode.CreateResult(Right(true))
             running(newTables)
           }
         }

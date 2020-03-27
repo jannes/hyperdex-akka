@@ -7,13 +7,7 @@ import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import hyperdex.API.{AttributeMapping, Create, Error, Get, Key, Put, Search}
-import hyperdex.GatewayNode.{
-  GatewayMessage,
-  IncompleteAttributesError,
-  InvalidAttributeError,
-  QueryError,
-  TableNotExistError
-}
+import hyperdex.GatewayNode.{GatewayMessage, IncompleteAttributesError, InternalServerError, InvalidAttributeError, QueryError, TableNotExistError}
 import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -46,7 +40,10 @@ object GatewayHttpServer {
           case Failure(exception) =>
             Future.successful(Left(exception.getMessage))
           case Success(value) =>
-            Future.successful(Right(value.succeeded.toString))
+            value.result match {
+              case Left(InternalServerError) => Future.successful(Left("One of the datanodes did not respond, table was not created"))
+              case Right(value) => Future.successful(Right("Create successful"))
+            }
         }
     }
 
