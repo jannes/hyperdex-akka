@@ -6,8 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import hyperdex.API.{AttributeMapping, Create, Error, Get, Key, Put, Search}
-import hyperdex.GatewayNode.GatewayMessage
+import hyperdex.MessageProtocol._
 import sttp.tapir.server.akkahttp._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,82 +28,121 @@ object GatewayHttpServer {
       */
     implicit val timeout: Timeout = 10.seconds
 
-    // TODO: better error reporting
-    def createRouteLogic(inp: Create.Input): Future[Either[Error, String]] = {
-      val createResult: Future[GatewayNode.CreateResult] = typedSystem ? { ref =>
-        GatewayNode.Create(ref, inp.table, inp.attributes)
+    def createRouteLogic(inp: API.Create.Input): Future[Either[API.ErrorInfo, String]] = {
+      val createResult: Future[CreateResult] = typedSystem ? { ref =>
+        Create(ref, inp.table, inp.attributes)
       }
 
       createResult
         .transformWith {
           case Failure(exception) =>
-            Future.successful(Left(exception.getMessage))
+            Future.successful(Left(API.InternalError(exception.getMessage)))
           case Success(value) =>
-            Future.successful(Right(value.succeeded.toString))
+            value.result match {
+              case Left(_) =>
+                Future.successful(
+                  Left(API.InternalError("One of the datanodes did not respond, table was not created"))
+                )
+              case Right(_) =>
+                Future.successful(Right("Create successful"))
+            }
         }
     }
 
-    // TODO: better error reporting
-    def getRouteLogic(inp: Get.Input): Future[Either[Error, Option[AttributeMapping]]] = {
+    def getRouteLogic(inp: API.Get.Input): Future[Either[API.ErrorInfo, Option[API.AttributeMapping]]] = {
 
-      val lookupResult: Future[GatewayNode.LookupResult] = typedSystem ? { ref =>
-        GatewayNode.Lookup(ref, inp.table, inp.key)
+      val lookupResult: Future[LookupResult] = typedSystem ? { ref =>
+        Lookup(ref, inp.table, inp.key)
       }
 
       lookupResult
-        .map(lr => lr.value)
         .transformWith {
-          case Failure(exception) =>
-            Future.successful(Left(exception.getMessage))
           case Success(value) =>
-            Future.successful(Right(value))
+            Future.successful(transformLookupResponse(value))
+          case Failure(exception) =>
+            Future.successful(Left(API.InternalError(exception.getMessage)))
         }
     }
 
-    // TODO: better error reporting
-    def putRouteLogic(inp: Put.Input): Future[Either[Error, String]] = {
+    def transformLookupResponse(response: LookupResult): Either[API.ErrorInfo, Option[API.AttributeMapping]] = {
+      response.result match {
+        case Left(lookupError) =>
+          lookupError match {
+            case TimeoutError       => Left(API.InternalError("internal timeout"))
+            case TableNotExistError => Left(API.BadRequestError("No such table exists"))
+          }
+        case Right(optValue) => {
+          // sadly have to check for null as None is serialized to null
+          if (optValue == null)
+            Right(None)
+          else
+            Right(optValue)
+        }
+      }
+    }
 
-      val putResult: Future[GatewayNode.PutResult] = typedSystem ? { ref =>
-        GatewayNode.Put(ref, inp.table, inp.key, inp.value)
+    def putRouteLogic(inp: API.Put.Input): Future[Either[API.ErrorInfo, String]] = {
+
+      val putResult: Future[PutResult] = typedSystem ? { ref =>
+        Put(ref, inp.table, inp.key, inp.value)
       }
 
       putResult
         .transformWith {
-          case Failure(exception) =>
-            Future.successful(Left(exception.getMessage))
-          case Success(value) =>
-            if (value.succeeded)
-              Future.successful(Right("success"))
-            else
-              Future.successful(Right("failure"))
+          case Failure(exception) => Future.successful(Left(API.InternalError(exception.getMessage)))
+          case Success(value)     => Future.successful(transformPutResponse(value))
         }
     }
 
-    // TODO: better error reporting
-    def searchRouteLogic(inp: Search.Input): Future[Either[Error, Set[(Key, AttributeMapping)]]] = {
-      val searchResult: Future[GatewayNode.SearchResult] = typedSystem ? { ref =>
-        GatewayNode.Search(ref, inp.table, inp.query)
+    def transformPutResponse(response: PutResult): Either[API.ErrorInfo, String] = {
+      response.result match {
+        case Left(putError) =>
+          putError match {
+            case TimeoutError       => Left(API.InternalError("internal timeout"))
+            case TableNotExistError => Left(API.BadRequestError("table does not exist"))
+            case InvalidAttributeError(invalidAttributes) =>
+              Left(API.BadRequestError(s"provided invalid attributes: $invalidAttributes"))
+            case IncompleteAttributesError(missingAttributes) =>
+              Left(API.BadRequestError(s"missing attributes: $missingAttributes"))
+          }
+        case Right(_) => Right("Put Succeeded")
+      }
+    }
+
+    def searchRouteLogic(inp: API.Search.Input): Future[Either[API.ErrorInfo, Set[(API.Key, API.AttributeMapping)]]] = {
+      val searchResult: Future[SearchResult] = typedSystem ? { ref =>
+        Search(ref, inp.table, inp.query)
       }
 
       searchResult
-        .map(lr => {
-          println(s"received from data node: ${lr.objects}")
-          lr.objects
-        })
         .transformWith {
           case Failure(exception) =>
-            Future.successful(Left(exception.getMessage))
-          case Success(value) => {
-            val castedValue = value.map({ case (key, mapping) => (key.toInt, mapping) })
-            Future.successful(Right(castedValue.toSet))
-          }
+            Future.successful(Left(API.InternalError(exception.getMessage)))
+          case Success(value) =>
+            Future.successful(transformSearchResponse(value))
+
         }
     }
 
-    val getRoute = Get.endp.toRoute(getRouteLogic)
-    val putRoute = Put.endp.toRoute(putRouteLogic)
-    val searchRoute = Search.endp.toRoute(searchRouteLogic)
-    val createRoute = Create.endp.toRoute(createRouteLogic)
+    def transformSearchResponse(response: SearchResult): Either[API.ErrorInfo, Set[(API.Key, API.AttributeMapping)]] = {
+      response.result match {
+        case Left(searchError) =>
+          searchError match {
+            case TimeoutError       => Left(API.InternalError("internal timeout"))
+            case TableNotExistError => Left(API.BadRequestError("No such table exists"))
+            case InvalidAttributeError(invalidAttributes) =>
+              Left(API.BadRequestError(s"Provided attributes do not exist: $invalidAttributes"))
+          }
+        case Right(value) =>
+          val castedValue = value.map({ case (key, mapping) => (key.toInt, mapping) })
+          Right(castedValue.toSet)
+      }
+    }
+
+    val getRoute = API.Get.endp.toRoute(getRouteLogic)
+    val putRoute = API.Put.endp.toRoute(putRouteLogic)
+    val searchRoute = API.Search.endp.toRoute(searchRouteLogic)
+    val createRoute = API.Create.endp.toRoute(createRouteLogic)
     val routes = {
       import akka.http.scaladsl.server.Directives._
       getRoute ~ putRoute ~ searchRoute ~ createRoute

@@ -8,7 +8,7 @@ lazy val root = (project in file("."))
   .settings(
     name := "hyperdex-akka",
     version := "0.1",
-    scalaVersion := "2.12.1",
+    scalaVersion := "2.12.11",
     mainClass in Compile := Some("hyperdex.Main"),
     assemblyJarName in assembly := "hyperdex.jar"
   )

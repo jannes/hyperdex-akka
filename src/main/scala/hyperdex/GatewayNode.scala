@@ -1,12 +1,13 @@
 package hyperdex
 
 import akka.actor.typed.receptionist.Receptionist
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.scaladsl.AskPattern._
+import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.util.Timeout
-import hyperdex.API.{AttributeMapping, Key}
+import hyperdex.API.AttributeMapping
 import hyperdex.DataNode.AcceptedMessage
+import hyperdex.MessageProtocol._
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -15,29 +16,11 @@ import scala.util.{Failure, Success, Try}
 
 object GatewayNode {
 
-  /** messages **/
-  sealed trait GatewayMessage extends CBorSerializable
-
-  /** user queries **/
-  sealed trait Query extends GatewayMessage
-  final case class Create(from: ActorRef[CreateResult], table: String, attributes: Seq[String]) extends Query
-  sealed trait TableQuery extends Query
-  final case class Lookup(from: ActorRef[LookupResult], table: String, key: Int) extends TableQuery
-  final case class Search(from: ActorRef[SearchResult], table: String, mapping: Map[String, Int]) extends TableQuery
-  final case class Put(from: ActorRef[PutResult], table: String, key: Int, mapping: Map[String, Int]) extends TableQuery
-
-  /** responses from data nodes **/
-  sealed trait DataNodeResponse extends GatewayMessage
-  final case class LookupResult(value: Option[AttributeMapping]) extends DataNodeResponse
-  // in order for cbor/json serialization to work a map can only have strings as keys
-  final case class SearchResult(objects: Map[String, AttributeMapping]) extends DataNodeResponse
-  final case class PutResult(succeeded: Boolean) extends DataNodeResponse
-  final case class CreateResult(succeeded: Boolean) extends DataNodeResponse
-
   /** configuration messages **/
   sealed trait RuntimeMessage extends GatewayMessage
   // to discover receivers
   private final case class AllReceivers(receivers: Set[ActorRef[AcceptedMessage]]) extends RuntimeMessage
+  private final case class CreateSuccess(tableName: String, newHyperspace: HyperSpace) extends RuntimeMessage
 
   def actorBehavior(numDataNodes: Int): Behavior[GatewayMessage] = {
     Behaviors.setup { ctx =>
@@ -95,18 +78,23 @@ object GatewayNode {
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
   ): Behavior[GatewayMessage] = {
 
+    implicit val system: ActorSystem[Nothing] = ctx.system
+    implicit val timeout: Timeout = 5.seconds
+    implicit val ec: ExecutionContext = ctx.executionContext
+
     Behaviors
       .receiveMessage {
-
-        case Create(from, table, attributes) =>
+        case create @ Create(from, table, attributes) =>
           val newHyperspace = new HyperSpace(attributes, dataNodes.size, 2)
-          dataNodes.foreach(dataNode => dataNode ! Create(ctx.self, table, attributes))
-          // TODO: decide when a create result is really successful (could do parallel ask)
-          from ! CreateResult(true)
-          running(ctx, hyperspaces.+((table, newHyperspace)), dataNodes)
+          handleValidCreate(create, ctx, newHyperspace, dataNodes)
+          Behaviors.same
         case tableQuery: TableQuery =>
           handleTableQuery(tableQuery, ctx, hyperspaces, dataNodes)
           Behaviors.same
+        case createSuccess: CreateSuccess =>
+          val name = createSuccess.tableName
+          val hyperspace = createSuccess.newHyperspace
+          running(ctx, hyperspaces.+((name, hyperspace)), dataNodes)
         // shouldn't receive any except create result which is ignored
         case _: DataNodeResponse =>
           Behaviors.same
@@ -114,10 +102,8 @@ object GatewayNode {
         case _: AllReceivers =>
           Behaviors.same
       }
-
   }
 
-  // TODO: some minimal error handling instead of using null/empty data
   /**
     * process a put/get/search by routing to the correct datanodes
     * and potentially merging results
@@ -131,47 +117,92 @@ object GatewayNode {
     ctx: ActorContext[GatewayMessage],
     hyperspaces: Map[String, HyperSpace],
     dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
-  ): Unit = {
-
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
     // implicits needed for ask pattern
-    implicit val system: ActorSystem[Nothing] = ctx.system
-    implicit val timeout: Timeout = 5.seconds
-    implicit val ec: ExecutionContext = ctx.executionContext
 
-    // TODO: error when table does not exist
     query match {
       case lookup @ Lookup(from, table, key) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             handleValidLookup(lookup, ctx, hyperspace, dataNodes)
           case None =>
-            from ! LookupResult(None)
+            from ! LookupResult(Left(TableNotExistError))
         }
       case search @ Search(from, table, mapping) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             // if mapping contains invalid attributes
-            // TODO: return actual invalid attribute error
-            if (hyperspace.attributes.toSet.union(mapping.keys.toSet) != hyperspace.attributes.toSet)
-              from ! SearchResult(Map.empty)
-            else
-              handleValidSearch(search, ctx, hyperspace, dataNodes)
+            if (!mapping.keys.map(x => hyperspace.attributes.contains(x)).forall(x => x))
+              from ! SearchResult(Left(InvalidAttributeError(mapping.keys.toSet.diff(hyperspace.attributes.toSet))))
+            handleValidSearch(search, ctx, hyperspace, dataNodes)
+
           case None =>
-            from ! SearchResult(Map.empty)
+            from ! SearchResult(Left(TableNotExistError))
         }
       case put @ Put(from, table, key, mapping) =>
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             // if mapping contains invalid attributes
-            // TODO: return actual invalid attribute error
-            if (hyperspace.attributes.toSet != mapping.keys.toSet)
-              from ! PutResult(false)
-            else
+            if (hyperspace.attributes.toSet != mapping.keys.toSet) {
+              if (hyperspace.attributes.toSet.size <= mapping.keys.toSet.size)
+                from ! PutResult(Left(InvalidAttributeError(mapping.keys.toSet.diff(hyperspace.attributes.toSet))))
+              else if (hyperspace.attributes.toSet.size > mapping.keys.toSet.size)
+                from ! PutResult(Left(IncompleteAttributesError(hyperspace.attributes.toSet.diff(mapping.keys.toSet))))
+            } else
               handleValidPut(put, ctx, hyperspace, dataNodes)
           case None =>
-            from ! PutResult(false)
+            from ! PutResult(Left(TableNotExistError))
         }
     }
+  }
+
+  def handleValidCreate(
+    create: Create,
+    ctx: ActorContext[GatewayMessage],
+    hyperspace: HyperSpace,
+    dataNodes: Seq[ActorRef[DataNode.AcceptedMessage]]
+  )(implicit as: ActorSystem[Nothing], timeout: Timeout, ec: ExecutionContext): Unit = {
+
+    val answers: Seq[Future[CreateResult]] = dataNodes
+      .map(dn => { dn ? [CreateResult](ref => Create(ref, create.table, create.attributes)) })
+    val answersSingleSuccessFuture: Future[Seq[Try[CreateResult]]] = Future.sequence(
+      answers.map(f => f.map(Success(_)).recover({ case x: Throwable => Failure(x) }))
+    )
+
+    val processedFuture: Future[CreateResult] = answersSingleSuccessFuture.map(seq => {
+      val allCreateSuccessful = seq
+        .map {
+          case Failure(exception) => {
+            ctx.log.error(s"encountered exception when waiting for create response: ${exception.getMessage}")
+            false
+          }
+          case Success(value) =>
+            value.result match {
+              // never happens
+              case Left(value) => false
+              // should always be true as put should never fail
+              case Right(succeeded) => succeeded
+            }
+        }
+        .forall(succeeded => succeeded == true)
+
+      if (allCreateSuccessful)
+        CreateResult(Right(true))
+      else
+        CreateResult(Left(TimeoutError))
+    })
+
+    processedFuture.foreach(pr => {
+      // send processed result back to gateway server
+      create.from ! pr
+      // send create success to self if it succeeded
+      pr.result match {
+        case Left(error) =>
+          ctx.log.error("didn't receive create responses from all data ndoes")
+        case Right(_) =>
+          ctx.self ! CreateSuccess(create.table, hyperspace)
+      }
+    })
   }
 
   def handleValidLookup(
@@ -206,27 +237,31 @@ object GatewayNode {
     )
 
     val processedFuture: Future[PutResult] = answersSingleSuccessFuture.map(seq => {
-      var nonExceptionPutResults = mutable.Set.empty[PutResult]
-      for (tried <- seq) {
-        tried match {
-          case Success(value) => nonExceptionPutResults.add(value)
-          case Failure(exception) =>
-            ctx.log.error(s"exception occurred when asking for put result: ${exception.getMessage}")
-        }
-      }
-      val allNonExceptionsSuccessful = nonExceptionPutResults.toSet
-        .map((r: PutResult) => r.succeeded)
-        .fold(true)(_ && _)
+      val allPutSuccessful = seq
+        .map {
+          case Failure(exception) => {
+            ctx.log.error(s"encountered exception when waiting for put response: ${exception.getMessage}")
+            false
+          }
+          case Success(value) =>
+            value.result match {
+              // never happens
+              case Left(value) => false
+              // should always be true as put should never fail
+              case Right(succeeded) => succeeded
+            }
 
-      if (allNonExceptionsSuccessful && answers.size == nonExceptionPutResults.size)
-        PutResult(true)
+        }
+        .forall(succeeded => succeeded == true)
+
+      if (allPutSuccessful)
+        PutResult(Right(true))
       else
-        PutResult(false)
+        PutResult(Left(TimeoutError))
     })
 
     // send processed result back to gateway server (on completion of future)
     processedFuture.foreach(pr => put.from ! pr)
-
   }
 
   def handleValidSearch(
@@ -251,23 +286,32 @@ object GatewayNode {
     )
 
     val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {
-      var nonExceptionSearchResults = mutable.Set.empty[SearchResult]
+      var nonExceptionSearchResults = mutable.Set.empty[Map[String, AttributeMapping]]
+      var exception: SearchError = null
       for (tried <- seq) {
         tried match {
-          case Success(value) => nonExceptionSearchResults.add(value)
+          case Success(value) =>
+            value.result match {
+              case Left(value)  => exception = value
+              case Right(value) => nonExceptionSearchResults.add(value)
+            }
           case Failure(exception) =>
             ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
         }
       }
-      val mergedMatches = nonExceptionSearchResults.toSet
-        .map((sr: SearchResult) => sr.objects.toSet[(String, AttributeMapping)])
-        .fold(Set.empty)(_.union(_))
-        .toMap
-      SearchResult(mergedMatches)
-    })
+      if (exception == null) {
+        val mergedMatches = nonExceptionSearchResults.toSet
+          .map((sr: Map[String, AttributeMapping]) => sr.toSet[(String, AttributeMapping)])
+          .fold(Set.empty)(_.union(_))
+          .toMap
+        SearchResult(Right(mergedMatches))
+      } else {
 
+        SearchResult(Left(exception))
+      }
+    })
     // send processed result back to gateway server (on completion of future)
-    processedFuture.foreach(sr => search.from ! sr)
+    processedFuture.onComplete(sr => search.from ! sr.get)
   }
 
 }

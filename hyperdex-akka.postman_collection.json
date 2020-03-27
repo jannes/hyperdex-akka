@@ -263,7 +263,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8080/get/table/2",
+					"raw": "http://localhost:8080/get/table/22",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -272,7 +272,7 @@
 					"path": [
 						"get",
 						"table",
-						"2"
+						"22"
 					]
 				}
 			},
@@ -303,7 +303,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/search/dudes",
+					"raw": "http://localhost:8080/search/table",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -311,7 +311,7 @@
 					"port": "8080",
 					"path": [
 						"search",
-						"dudes"
+						"table"
 					]
 				}
 			},
@@ -417,7 +417,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:8080/put/anotherTable/1",
+					"raw": "http://localhost:8080/put/table2/1",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -425,7 +425,7 @@
 					"port": "8080",
 					"path": [
 						"put",
-						"anotherTable",
+						"table2",
 						"1"
 					]
 				}
