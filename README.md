@@ -13,15 +13,29 @@ We implemented a subset of the Hyperdex system as specified in the 2012 paper (h
 ### Create
 POST /create/"table_name" with attribute names as json list
 
+creating a table that already exists overwrites the old one
+
 ### Lookup
 GET /get/"table_name"/"key"
+
+looking up a key that does not exist returns an empty 200  
 
 ### Put
 Post /put/"table_name"/"key" with value specified as json dictionary
 
+putting an item with a key that already exists overwrites the old one  
+if an invalid attribute is specified an error with the invalid attributes is returned  
+if an attribute is missing an error with the missing attributes is returned
+
 ### Search
 GET /search/"table_name"/"key" with attributes values specified as json dictionary
 
+if an invalid attribute is specified an error with the invalid attributes is returned
+
+### common errors
+
+if a table does not exist and error is returned  
+if there are internal timeouts an error is returned
 
 ## Run instructions
 
