@@ -188,7 +188,7 @@ object GatewayNode {
       if (allPutSuccessful)
         CreateResult(Right(true))
       else
-        CreateResult(Left(InternalServerError))
+        CreateResult(Left(TimeoutError))
     })
     // send processed result back to gateway server (on completion of future)
     processedFuture.foreach(pr => {
@@ -249,7 +249,7 @@ object GatewayNode {
       if (allPutSuccessful)
         PutResult(Right(true))
       else
-        PutResult(Left(InternalServerError))
+        PutResult(Left(TimeoutError))
     })
 
     // send processed result back to gateway server (on completion of future)
@@ -279,7 +279,7 @@ object GatewayNode {
 
     val processedFuture: Future[SearchResult] = answersSingleSuccessFuture.map(seq => {
       var nonExceptionSearchResults = mutable.Set.empty[Map[String, AttributeMapping]]
-      var exception: QueryError = null
+      var exception: SearchError = null
       for (tried <- seq) {
         tried match {
           case Success(value) =>
@@ -287,7 +287,6 @@ object GatewayNode {
               case Left(value)  => exception = value
               case Right(value) => nonExceptionSearchResults.add(value)
             }
-
           case Failure(exception) =>
             ctx.log.error(s"exception occurred when asking for lookup result: ${exception.getMessage}")
         }

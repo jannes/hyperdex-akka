@@ -18,20 +18,24 @@ object MessageProtocol {
 
   /** responses from data nodes **/
   sealed trait DataNodeResponse extends GatewayMessage
-  final case class LookupResult(result: Either[QueryError, Option[AttributeMapping]]) extends DataNodeResponse
+  final case class CreateResult(result: Either[CreateError, Boolean]) extends DataNodeResponse
+  final case class LookupResult(result: Either[LookupError, Option[AttributeMapping]]) extends DataNodeResponse
   // in order for cbor/json serialization to work a map can only have strings as keys
-  final case class SearchResult(result: Either[QueryError, Map[String, AttributeMapping]]) extends DataNodeResponse
-  final case class PutResult(result: Either[QueryError, Boolean]) extends DataNodeResponse
-  final case class CreateResult(result: Either[QueryError, Boolean]) extends DataNodeResponse
+  final case class PutResult(result: Either[PutError, Boolean]) extends DataNodeResponse
+  final case class SearchResult(result: Either[SearchError, Map[String, AttributeMapping]]) extends DataNodeResponse
 
   /**
     * errors within messages
     */
   sealed trait QueryError
-  final case object TableNotExistError extends QueryError
-  sealed trait AttributeError extends QueryError
-  final case class InvalidAttributeError(invalidAttributes: Set[String]) extends AttributeError
-  final case class IncompleteAttributesError(missingAttributes: Set[String]) extends AttributeError
-  final case object InconsistentResultError extends QueryError
-  final case object InternalServerError extends QueryError
+
+  sealed trait CreateError extends QueryError
+  sealed trait LookupError extends QueryError
+  sealed trait PutError extends QueryError
+  sealed trait SearchError extends QueryError
+
+  final case object TimeoutError extends LookupError with CreateError with PutError with SearchError
+  final case object TableNotExistError extends LookupError with PutError with SearchError
+  final case class InvalidAttributeError(invalidAttributes: Set[String]) extends PutError with SearchError
+  final case class IncompleteAttributesError(missingAttributes: Set[String]) extends PutError
 }
