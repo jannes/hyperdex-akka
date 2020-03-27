@@ -60,13 +60,14 @@ object GatewayHttpServer {
       lookupResult
         .map(lr => lr.result)
         .transformWith {
-          case Failure(exception) =>
-            Future.successful(Left(exception.getMessage))
           case Success(value) =>
             value match {
               case Left(TableNotExistError) => Future.successful(Left("No such table."))
+              case Right(null)              => Future.successful(Left("No record with that key."))
               case Right(option)            => Future.successful(Right(option))
             }
+          case Failure(exception) =>
+            Future.successful(Left(exception.getMessage))
         }
     }
 
