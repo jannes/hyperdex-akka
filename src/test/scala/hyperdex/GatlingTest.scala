@@ -8,7 +8,7 @@ import scala.util.Random
 
 class GatlingTest extends Simulation {
 
-  def rng() = Random.nextInt(100)
+  def rng() = Random.nextInt(100) // Note that this only gets called once per val, not for every .exec
 
 
   val httpProtocol = http
