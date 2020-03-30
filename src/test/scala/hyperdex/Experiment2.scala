@@ -25,25 +25,13 @@ class Experiment2 extends Simulation {
 
     var putString: String = s"""{"attribute1" : ${1}"""
     for(attribute <- 2 to numAttributes){
-       putString = putString.concat(s""", "attribute$attribute" : ${attribute}""")
+       putString = putString.concat(s""", "attribute$attribute" : ${1}""")
     }
     putString = putString.concat("}")
 
     StringBody(putString)
   }
 
-  def generateSearchString(numAttributes: Int, values: Array[Int]): StringBody = {
-    if(numAttributes == 1)
-      return StringBody(s"""{ "attribute1" : ${values(0)}""")
-
-    var searchString: String = s"""{"attribute1" : ${values(0)}"""
-    for(attribute <- 2 to numAttributes){
-      searchString = searchString.concat(s""", "attribute$attribute" : ${values(attribute-1)}""")
-    }
-    searchString = searchString.concat("}")
-    println(searchString)
-    StringBody(searchString)
-  }
 
 
   val httpProtocol = http
@@ -61,11 +49,6 @@ class Experiment2 extends Simulation {
     .body(generatePutString(8))
     .check(bodyString is "Put Succeeded")
 
-  val searchRecord = http("searchRecord")
-    .get(url="/search/table")
-    .header("Content-Type", "application/json")
-    .body(generateSearchString(2,  Array(1, 2, 3, 4)))
-    .check(status is 200)
 
 
   val scn = scenario("SearchSimulation")
@@ -73,7 +56,7 @@ class Experiment2 extends Simulation {
     .repeat(100, "n"){
       exec(putRecord)
     }
-    .exec(searchRecord)
+
 
   setUp(
     scn.inject(atOnceUsers(1))
