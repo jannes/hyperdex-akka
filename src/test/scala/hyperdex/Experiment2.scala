@@ -3,14 +3,12 @@ package hyperdex
 import io.gatling.core.Predef._
 import io.gatling.core.body.StringBody
 import io.gatling.http.Predef._
+import io.gatling.http.request.builder.HttpRequestBuilder
 
 
 class Experiment2 extends Simulation {
 
   def generateTableString(numAttributes: Int): StringBody = {
-    if(numAttributes == 1)
-      return StringBody("[\"attribute1\"]")
-
     var generateTableString: String = "[\"attribute1\""
     for(attribute <- 2 to numAttributes){
       generateTableString = generateTableString.concat(s""", "attribute$attribute"""")
@@ -20,9 +18,6 @@ class Experiment2 extends Simulation {
   }
 
   def generatePutString(numAttributes: Int): StringBody = {
-    if(numAttributes == 1)
-      return StringBody(s"""{ "attribute1" : ${1}"""")
-
     var putString: String = s"""{"attribute1" : ${1}"""
     for(attribute <- 2 to numAttributes){
        putString = putString.concat(s""", "attribute$attribute" : ${1}""")
@@ -32,7 +27,14 @@ class Experiment2 extends Simulation {
     StringBody(putString)
   }
 
-
+  def generateSearch(numAttributes: Int): HttpRequestBuilder = {
+    val searchRecord = http(s"searchRecord$numAttributes")
+      .get(url="/search/table")
+      .header("Content-Type", "application/json")
+      .body(generatePutString(numAttributes))
+      .check(status is 200)
+    searchRecord
+  }
 
   val httpProtocol = http
     .baseUrl("http://localhost:8080")
@@ -50,12 +52,22 @@ class Experiment2 extends Simulation {
     .check(bodyString is "Put Succeeded")
 
 
-
   val scn = scenario("SearchSimulation")
     .exec(createTable)
-    .repeat(100, "n"){
+    .repeat(1000, "n"){
       exec(putRecord)
     }
+    .repeat(50) {
+      exec(generateSearch(8))
+        .exec(generateSearch(7))
+        .exec(generateSearch(6))
+        .exec(generateSearch(5))
+        .exec(generateSearch(4))
+        .exec(generateSearch(3))
+        .exec(generateSearch(2))
+        .exec(generateSearch(1))
+    }
+
 
 
   setUp(
