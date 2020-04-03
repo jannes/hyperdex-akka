@@ -90,7 +90,7 @@ class GatlingPutTest extends Simulation {
     scn2.inject(atOnceUsers(1)),
     scn3.inject(atOnceUsers(1)),
     scn4.inject(atOnceUsers(1)),
-    scn5.inject(atOnceUsers(1)),
+    scn5.inject(atOnceUsers(1))
 
   ).protocols(httpProtocol)
 
