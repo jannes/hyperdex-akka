@@ -7,10 +7,9 @@ import scala.concurrent.duration._
 import scala.util.Random
 
 class GatlingGetTest extends Simulation {
+  val amountOfPutRequests= 100000
 
-  val repetition= 1000
-
-  val randomIndexFeeder = Iterator.continually(Map("randomIndex" -> Random.nextInt(repetition).toString))
+  val randomIndexFeeder = Iterator.continually(Map("randomIndex" -> Random.nextInt(amountOfPutRequests).toString))
   val indexFeeder = Iterator.from(1).map(i => Map("index" -> i))
   val attributeFeeder = Iterator.continually(Map("attribute1" -> Random.nextInt(100).toString, "attribute2" -> Random.nextInt(100).toString))
 
@@ -32,22 +31,22 @@ class GatlingGetTest extends Simulation {
      .get("/get/table/${randomIndex}")
     .check(status.is(200)).check(bodyString.exists)
 
-  val scn = scenario(s"Test get after ${repetition} put")
-    .exec(createTable)
-    .repeat(repetition){
-      exec(putRecord)
-    }.repeat(repetition/2){
-    feed(randomIndexFeeder)
-    .exec(getTable)
-  }
 
-  val scn2 = scenario(s"Test get after ${repetition*2} put")
-    .repeat(repetition){
-        exec(putRecord)
-    }.repeat(repetition/2){
+
+  val scn = scenario(s" ${amountOfPutRequests} put")
+    .exec(createTable)
+    .repeat(amountOfPutRequests){
+      exec(putRecord)
+    }
+
+
+  val scn2 = scenario(s"Test get after ${amountOfPutRequests} put")
+  repeat(amountOfPutRequests/2){
     feed(randomIndexFeeder)
       .exec(getTable)
   }
+
+
   setUp(
     scn.inject(atOnceUsers(1)),
     scn2.inject(atOnceUsers(1))

@@ -6,10 +6,6 @@ import io.gatling.http.Predef._
 import scala.concurrent.duration._
 import scala.util.Random
 
-object PutInfo{
-  var indexid = 0
-}
-
 class GatlingPutTest extends Simulation {
 
 
@@ -34,46 +30,17 @@ class GatlingPutTest extends Simulation {
 //    .get("/get/table/1")
 //    .check(status.is(200))
 
-  val repetition= 500
+  val repetition= 10000
 
   val scn = scenario(s"First ${repetition} Put")
     .exec(createTable)
     .repeat(repetition){
         exec(putRecord1)
     }
+  val users = 1
 
-  val scn2 = scenario(s"After ${repetition*2} Put")
-    .repeat(repetition){
-        exec(putRecord1)
-
-    }
-
-  val scn3 = scenario(s"After ${repetition*3} Put")
-    .repeat(repetition){
-        exec(putRecord1)
-
-    }
-
-  val scn4 = scenario(s"After ${repetition*4} Put")
-    .repeat(repetition){
-        exec(putRecord1)
-
-    }
-
-  val scn5 = scenario(s"After ${repetition*5} Put")
-    .repeat(repetition){
-        exec(putRecord1)
-
-    }
-
-
-  val users = 4
   setUp(
-    scn.inject(atOnceUsers(users)),
-    scn2.inject(atOnceUsers(users)),
-    scn3.inject(atOnceUsers(users)),
-    scn4.inject(atOnceUsers(users)),
-    scn5.inject(atOnceUsers(users)),
+    scn.inject(atOnceUsers(users))
 
   ).protocols(httpProtocol)
 
