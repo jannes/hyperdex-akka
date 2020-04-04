@@ -52,7 +52,7 @@ class Experiment1Search extends Simulation {
     .check(bodyString is "Create successful")
 
   val putRecord = feed(indexFeeder).exec(http("putRecord")
-    .post(url="/put/table/${numRecords}") // n is provided by loop in the scenario
+    .post(url="/put/table/${index}") // n is provided by loop in the scenario
     .header("Content-Type", "application/json")
     .body(generatePutString(NUM_ATTRIBUTES))
     .check(bodyString is "Put Succeeded"))
