@@ -23,8 +23,8 @@ class Experiment1Search extends Simulation {
   }
 
   def generatePutString(numAttributes: Int): StringBody = {
-    var putString: String = ""
-    for(attribute <- 1 to numAttributes){
+    var putString: String = s"""{"attribute1" : ${1}"""
+    for(attribute <- 2 to numAttributes){
       putString = putString.concat(s""", "attribute$attribute" : """).concat("${value}")
     }
     putString = putString.concat("}")
@@ -33,7 +33,7 @@ class Experiment1Search extends Simulation {
   }
 
   def generateSearch(numAttributes: Int): HttpRequestBuilder = {
-    val searchRecord = http("rds: ${n} * 10^4, attr: ".concat(numAttributes.toString))
+    val searchRecord = http("Search among ${n} * 10000 records")
       .get(url="/search/table")
       .header("Content-Type", "application/json")
       .body(generatePutString(numAttributes))
@@ -47,13 +47,13 @@ class Experiment1Search extends Simulation {
   val createTable = http("createTable")
     .post("/create/table")
     .header("Content-Type", "application/json")
-    .body(generateTableString(8))
+    .body(generateTableString(NUM_ATTRIBUTES))
     .check(bodyString is "Create successful")
 
   val putRecord = feed(indexFeeder).feed(valueFeeder).exec(http("putRecord")
     .post(url="/put/table/${index}") // n is provided by loop in the scenario
     .header("Content-Type", "application/json")
-    .body(generatePutString(8))
+    .body(generatePutString(NUM_ATTRIBUTES))
     .check(bodyString is "Put Succeeded"))
 
   val scn = scenario("Experiment 1: Search")
@@ -62,16 +62,7 @@ class Experiment1Search extends Simulation {
       exec(repeat(10000, "numRecords"){
           exec(putRecord)
       })
-        .repeat(50) {
-            exec(generateSearch(1))
-            .exec(generateSearch(2))
-            .exec(generateSearch(3))
-            .exec(generateSearch(4))
-            .exec(generateSearch(5))
-            .exec(generateSearch(6))
-            .exec(generateSearch(7))
-            .exec(generateSearch(8))
-        }
+      .exec(generateSearch(NUM_ATTRIBUTES))
     }
 
   setUp(
