@@ -85,6 +85,7 @@ object GatewayNode {
     Behaviors
       .receiveMessage {
         case create @ Create(from, table, attributes) =>
+          ctx.log.info(s"Received Create table ${table} from ${from}")
           val newHyperspace = new HyperSpace(attributes, dataNodes.size, 2)
           handleValidCreate(create, ctx, newHyperspace, dataNodes)
           Behaviors.same
@@ -122,6 +123,7 @@ object GatewayNode {
 
     query match {
       case lookup @ Lookup(from, table, key) =>
+        ctx.log.info(s"Received Get key ${key} in table${table} from ${from}")
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             handleValidLookup(lookup, ctx, hyperspace, dataNodes)
@@ -129,6 +131,7 @@ object GatewayNode {
             from ! LookupResult(Left(TableNotExistError))
         }
       case search @ Search(from, table, mapping) =>
+        ctx.log.info(s"Received Search table ${table} from ${from}")
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             // if mapping contains invalid attributes
@@ -140,6 +143,7 @@ object GatewayNode {
             from ! SearchResult(Left(TableNotExistError))
         }
       case put @ Put(from, table, key, mapping) =>
+        ctx.log.info(s"Received Get key ${key} in table${table} from ${from}")
         hyperspaces.get(table) match {
           case Some(hyperspace) =>
             // if mapping contains invalid attributes
