@@ -1,4 +1,5 @@
 amounts=(1 2 4 8 16)
+#amounts=(1)
 for ((i = 0 ; i < ${#amounts[@]}; i++)); do
     amount=${amounts[i]}
     export NUM_DATANODES=$amount
@@ -15,13 +16,13 @@ for ((i = 0 ; i < ${#amounts[@]}; i++)); do
     sbt "gatling:testOnly hyperdex.Experiment1Search"
     docker-compose down
 
-    mkdir "experiment2-${amount}n"
+    mkdir "experiment1-${amount}n"
     mkdir "experiment1-${amount}n/get"
     mkdir "experiment1-${amount}n/put"
     mkdir "experiment1-${amount}n/search"
-    cp -r target/gatling/experiment1get*/* "experiment1-{$amount}n/get"
-    cp -r target/gatling/experiment1put*/* "experiment1-{$amount}n/push"
-    cp -r target/gatling/experiment1search*/* "experiment1-{$amount}n/search"
+    cp -r target/gatling/experiment1get*/* "experiment1-${amount}n/get"
+    cp -r target/gatling/experiment1put*/* "experiment1-${amount}n/put"
+    cp -r target/gatling/experiment1search*/* "experiment1-${amount}n/search"
     rm -rf target/gatling/experiment1get*
     rm -rf target/gatling/experiment1put*
     rm -rf target/gatling/experiment1search*

@@ -7,6 +7,6 @@ for ((i = 0 ; i < ${#amounts[@]}; i++)); do
     sbt "gatling:testOnly hyperdex.Experiment2" 
     docker-compose down
     mkdir "experiment2-${amount}n"
-    cp -r target/gatling/experiment2*/* "experiment2-{$amount}n"
+    cp -r target/gatling/experiment2*/* "experiment2-${amount}n"
     rm -rf target/gatling/experiment2*
 done
