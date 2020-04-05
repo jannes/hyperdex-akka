@@ -4,7 +4,6 @@ import io.gatling.core.Predef._
 import io.gatling.core.body.StringBody
 import io.gatling.http.Predef._
 import io.gatling.http.request.builder.HttpRequestBuilder
-import scala.util.Random
 
 class Experiment1Search extends Simulation {
 
@@ -15,7 +14,7 @@ class Experiment1Search extends Simulation {
 
   def generateTableString(numAttributes: Int): StringBody = {
     var generateTableString: String = "[\"attribute1\""
-    for(attribute <- 2 to numAttributes){
+    for (attribute <- 2 to numAttributes) {
       generateTableString = generateTableString.concat(s""", "attribute$attribute"""")
     }
     generateTableString = generateTableString.concat("]")
@@ -24,7 +23,7 @@ class Experiment1Search extends Simulation {
 
   def generatePutString(numAttributes: Int): StringBody = {
     var putString: String = s"""{"attribute1" : ${1}"""
-    for(attribute <- 2 to numAttributes){
+    for (attribute <- 2 to numAttributes) {
       putString = putString.concat(s""", "attribute$attribute" : """).concat("${value}")
     }
     putString = putString.concat("}")
@@ -34,10 +33,10 @@ class Experiment1Search extends Simulation {
 
   def generateSearch(numAttributes: Int): HttpRequestBuilder = {
     val searchRecord = http("Search among ${n} * 10000 records")
-      .get(url="/search/table")
+      .get(url = "/search/table")
       .header("Content-Type", "application/json")
       .body(generatePutString(numAttributes))
-      .check(status is 200)
+      .check(status.is(200))
     searchRecord
   }
 
@@ -48,13 +47,17 @@ class Experiment1Search extends Simulation {
     .post("/create/table")
     .header("Content-Type", "application/json")
     .body(generateTableString(NUM_ATTRIBUTES))
-    .check(bodyString is "Create successful")
+    .check(bodyString.is("Create successful"))
 
-  val putRecord = feed(indexFeeder).feed(valueFeeder).exec(http("putRecord")
-    .post(url="/put/table/${index}") // n is provided by loop in the scenario
-    .header("Content-Type", "application/json")
-    .body(generatePutString(NUM_ATTRIBUTES))
-    .check(bodyString is "Put Succeeded"))
+  val putRecord = feed(indexFeeder)
+    .feed(valueFeeder)
+    .exec(
+      http("putRecord")
+        .post(url = "/put/table/${index}") // n is provided by loop in the scenario
+        .header("Content-Type", "application/json")
+        .body(generatePutString(NUM_ATTRIBUTES))
+        .check(bodyString.is("Put Succeeded"))
+    )
 
   val scn = scenario("Experiment 1: Search")
       .repeat(50) {
