@@ -21,10 +21,18 @@ class Experiment1Put extends Simulation {
     .header("Content-Type", "application/json")
     .body(StringBody("[\"attribute1\", \"attribute2\"]"))
 
-  val putRecord = feed(indexFeeder)
-    .feed(attributeFeeder)
+  val putRecord = feed(attributeFeeder)
     .exec(
       http("post")
+        .post("/put/table/${index}")
+        .header("Content-Type", "application/json")
+        .body(StringBody("""{ "attribute1" : ${attribute1}, "attribute2" : ${attribute2} }"""))
+        .check(status.is(200))
+    )
+
+  val putRecord2 = feed(attributeFeeder)
+    .exec(
+      http("Put after ${n} * 10000 records")
         .post("/put/table/${index}")
         .header("Content-Type", "application/json")
         .body(StringBody("""{ "attribute1" : ${attribute1}, "attribute2" : ${attribute2} }"""))
@@ -37,8 +45,9 @@ class Experiment1Put extends Simulation {
     .exec(createTable)
     .repeat(10, "n") {
       exec(repeat(10000, "numRecords") {
-        exec(putRecord)
-      })
+        feed(indexFeeder).exec(putRecord)
+      }).exec(putRecord2)
+
     }
   val users = 1
 

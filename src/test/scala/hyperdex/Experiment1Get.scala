@@ -8,6 +8,7 @@ import scala.util.Random
 class Experiment1Get extends Simulation {
 
   val indexFeeder: Iterator[Map[String, Int]] = Iterator.from(1).map(i => Map("index" -> i))
+  val maxIndexFeeder = Iterator.continually(Map("randomIndex" -> Random.nextInt(10000).toString))
   val attributeFeeder: Iterator[Map[String, String]] = Iterator.continually(
     Map("attribute1" -> Random.nextInt(100).toString, "attribute2" -> Random.nextInt(100).toString)
   )
@@ -31,24 +32,20 @@ class Experiment1Get extends Simulation {
     .body(StringBody("[\"attribute1\", \"attribute2\"]"))
 
   val getRecord = exec(
-    http("get")
-      .get("/get/table/${randomIndex}")
-      .check(status.is(200))
-      .check(bodyString.exists)
+      http("Get after ${n} * 10000 records")
+        .get("/get/table/${randomIndex}")
+        .check(status.is(200))
+        .check(bodyString.exists)
   )
 
-  def newFeeder(): Iterator[Map[String, String]] = {
-    val maxIndex = "${n}".toInt * "${numRecords}".toInt
-    Iterator.continually(Map("randomIndex" -> Random.nextInt(maxIndex).toString))
-  }
 
-  val scn = scenario(" Experiment put")
+  val scn = scenario(" Experiment Get")
     .exec(createTable)
     .repeat(10, "n") {
       exec(repeat(10000, "numRecords") {
         exec(putRecord)
-      })
-      feed(newFeeder()).exec(getRecord)
+      }).feed(maxIndexFeeder).exec(getRecord)
+      
     }
 
   setUp(
