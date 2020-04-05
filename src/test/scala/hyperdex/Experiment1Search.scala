@@ -60,13 +60,12 @@ class Experiment1Search extends Simulation {
     )
 
   val scn = scenario("Experiment 1: Search")
-      .repeat(50) {
-        exec(createTable)
-          .repeat(10, "n") {
-            exec(repeat(10000, "numRecords") {
+            .exec(createTable)
+            .repeat(10, "n") {
+              exec(repeat(10000, "numRecords") {
               exec(putRecord)
-            })
-              .exec(generateSearch(NUM_ATTRIBUTES))
+            }).repeat(50) {
+                exec(generateSearch(NUM_ATTRIBUTES))
           }
       }
 
