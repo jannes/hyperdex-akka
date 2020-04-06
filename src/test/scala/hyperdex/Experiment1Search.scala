@@ -32,7 +32,7 @@ class Experiment1Search extends Simulation {
   }
 
   def generateSearch(numAttributes: Int): HttpRequestBuilder = {
-    val searchRecord = http("Search among ${n} * 10000 records")
+    val searchRecord = http("Search among ${n} * 50000 records")
       .get(url = "/search/table")
       .header("Content-Type", "application/json")
       .body(generatePutString(numAttributes))
@@ -62,7 +62,7 @@ class Experiment1Search extends Simulation {
   val scn = scenario("Experiment 1: Search")
             .exec(createTable)
             .repeat(10, "n") {
-              exec(repeat(10000, "numRecords") {
+              exec(repeat(50000, "numRecords") {
               exec(putRecord)
             }).repeat(50) {
                 exec(generateSearch(NUM_ATTRIBUTES))

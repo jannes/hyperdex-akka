@@ -2,10 +2,11 @@ package hyperdex
 
 import io.gatling.core.Predef._
 import io.gatling.http.Predef._
+import scala.concurrent.duration._
 
 import scala.util.Random
 
-class Experiment1Get extends Simulation {
+class Experiment3 extends Simulation {
 
   val indexFeeder: Iterator[Map[String, Int]] = Iterator.from(1).map(i => Map("index" -> i))
   val maxIndexFeeder = Iterator.continually(Map("randomIndex" -> Random.nextInt(10000).toString))
@@ -32,7 +33,7 @@ class Experiment1Get extends Simulation {
     .body(StringBody("[\"attribute1\", \"attribute2\"]"))
 
   val getRecord = exec(
-      http("Get after ${n} * 50000 records")
+      http("Get after ${n} * 10000 records")
         .get("/get/table/${randomIndex}")
         .check(status.is(200))
         .check(bodyString.exists)
@@ -42,7 +43,7 @@ class Experiment1Get extends Simulation {
   val scn = scenario(" Experiment Get")
     .exec(createTable)
     .repeat(10, "n") {
-      exec(repeat(50000, "numRecords") {
+      exec(repeat(10000, "numRecords") {
         exec(putRecord)
       }).feed(maxIndexFeeder).repeat(50) {
         exec(getRecord)
@@ -50,7 +51,10 @@ class Experiment1Get extends Simulation {
     }
 
   setUp(
-    scn.inject(atOnceUsers(1))
-  ).protocols(httpProtocol)
+    scn.inject(
+      atOnceUsers(1), 
+      rampUsers(100) during (120 seconds)
+    ).protocols(httpProtocol)
+  )
 
 }

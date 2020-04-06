@@ -32,22 +32,23 @@ class Experiment1Put extends Simulation {
 
   val putRecord2 = feed(attributeFeeder)
     .exec(
-      http("Put after ${n} * 10000 records")
+      http("Put after ${n} * 50000 records")
         .post("/put/table/${index}")
         .header("Content-Type", "application/json")
         .body(StringBody("""{ "attribute1" : ${attribute1}, "attribute2" : ${attribute2} }"""))
         .check(status.is(200))
     )
 
-  val repetition = 10000
+  val repetition = 50000
 
   val scn = scenario("Experiment: Put after x records")
     .exec(createTable)
     .repeat(10, "n") {
-      exec(repeat(10000, "numRecords") {
+      exec(repeat(50000, "numRecords") {
         feed(indexFeeder).exec(putRecord)
-      }).exec(putRecord2)
-
+      }).repeat(50) {
+        exec(putRecord2)
+      }
     }
   val users = 1
 

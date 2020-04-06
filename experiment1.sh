@@ -1,4 +1,4 @@
-amounts=(1 2 4 8 16)
+amounts=(1 2 4 8)
 #amounts=(1)
 for ((i = 0 ; i < ${#amounts[@]}; i++)); do
     amount=${amounts[i]}
