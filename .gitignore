@@ -1,5 +1,8 @@
 # Created by https://www.gitignore.io/api/sbt,java,scala
 # Edit at https://www.gitignore.io/?templates=sbt,java,scala
+#
+
+**/simulation.log
 
 ### Java ###
 # Compiled class file
