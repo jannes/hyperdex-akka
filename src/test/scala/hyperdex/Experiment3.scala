@@ -33,28 +33,29 @@ class Experiment3 extends Simulation {
     .body(StringBody("[\"attribute1\", \"attribute2\"]"))
 
   val getRecord = exec(
-      http("Get after ${n} * 10000 records")
-        .get("/get/table/${randomIndex}")
-        .check(status.is(200))
-        .check(bodyString.exists)
+    http("Get after ${n} * 10000 records")
+      .get("/get/table/${randomIndex}")
+      .check(status.is(200))
+      .check(bodyString.exists)
   )
-
 
   val scn = scenario(" Experiment Get")
     .exec(createTable)
     .repeat(10, "n") {
-      exec(repeat(10000, "numRecords") {
+      exec(repeat(100, "numRecords") {
         exec(putRecord)
-      }).feed(maxIndexFeeder).repeat(50) {
+      }).feed(maxIndexFeeder).repeat(10) {
         exec(getRecord)
       }
     }
 
   setUp(
-    scn.inject(
-      atOnceUsers(1), 
-      rampUsers(100) during (120 seconds)
-    ).protocols(httpProtocol)
+    scn
+      .inject(
+        atOnceUsers(1),
+        rampUsers(10000).during(300 seconds)
+      )
+      .protocols(httpProtocol)
   )
 
 }
