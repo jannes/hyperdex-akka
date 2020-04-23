@@ -5,6 +5,7 @@ import io.gatling.core.body.StringBody
 import io.gatling.http.Predef._
 import io.gatling.http.request.builder.HttpRequestBuilder
 
+import scala.util.Random
 
 class Experiment2 extends Simulation {
 
@@ -18,9 +19,9 @@ class Experiment2 extends Simulation {
   }
 
   def generatePutString(numAttributes: Int): StringBody = {
-    var putString: String = s"""{"attribute1" : ${1}"""
+    var putString: String = s"""{"attribute1" : ${Random.nextInt(8)}"""
     for(attribute <- 2 to numAttributes){
-       putString = putString.concat(s""", "attribute$attribute" : ${1}""")
+       putString = putString.concat(s""", "attribute$attribute" : ${Random.nextInt(8)}""")
     }
     putString = putString.concat("}")
 
